@@ -1,0 +1,13 @@
+# requirements.txt for your Hugging Face Space
+# Replace your existing requirements.txt with this
+gradio>=4.0.0
+fastapi
+uvicorn
+python-multipart
+opencv-python-headless
+numpy
+Pillow
+requests
+
+# DO NOT include mediapipe (install fails on most HF CPU spaces)
+# DO NOT include rembg (too heavy for free tier — optional)
