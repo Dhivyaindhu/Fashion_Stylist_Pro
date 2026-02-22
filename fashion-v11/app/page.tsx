@@ -71,10 +71,13 @@ function buildAvatar(result: any, dressB64: string|null): string {
     const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
     return `M ${L(sw)},${y_sh} C ${L(sw+8)},${y_sh+22} ${L(bw+5)},${y_bu-16} ${L(bw)},${y_bu} C ${L(bw-6)},${y_bu+26} ${L(ww+4)},${y_wa-14} ${L(ww)},${y_wa} C ${L(ww+5)},${y_wa+20} ${L(hw_-4)},${y_hi-12} ${L(hw_)},${y_hi} C ${L(hw_-2)},${y_hi+28} ${L(tw+4)},${y_th-10} ${L(tw)},${y_th} C ${L(tw-2)},${y_th+20} ${L(cw+2)},${y_kn-8} ${L(cw)},${y_kn} C ${L(cw)},${y_kn+24} ${L(cw-2)},${y_ca-6} ${L(cw-2)},${y_ca} C ${L(cw-2)},${y_ca+16} ${L(cw)},${y_ft-4} ${L(cw+2)},${y_ft} L ${R(cw+2)},${y_ft} C ${R(cw)},${y_ft-4} ${R(cw-2)},${y_ca+16} ${R(cw-2)},${y_ca} C ${R(cw-2)},${y_ca-6} ${R(cw)},${y_kn+24} ${R(cw)},${y_kn} C ${R(cw+2)},${y_kn-8} ${R(tw-2)},${y_th+20} ${R(tw)},${y_th} C ${R(tw+4)},${y_th-10} ${R(hw_-2)},${y_hi+28} ${R(hw_)},${y_hi} C ${R(hw_-4)},${y_hi-12} ${R(ww+5)},${y_wa+20} ${R(ww)},${y_wa} C ${R(ww+4)},${y_wa-14} ${R(bw-6)},${y_bu+26} ${R(bw)},${y_bu} C ${R(bw+5)},${y_bu-16} ${R(sw+8)},${y_sh+22} ${R(sw)},${y_sh} Z`
   }
-  function dressP(sw:number,bw:number,ww:number,hw_:number,sh:number) {
-    const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
-    return `M ${L(sw)},${y_sh} C ${L(sw+8)},${y_sh+22} ${L(bw+5)},${y_bu-16} ${L(bw)},${y_bu} C ${L(bw-6)},${y_bu+26} ${L(ww+4)},${y_wa-14} ${L(ww)},${y_wa} C ${L(ww+5)},${y_wa+20} ${L(hw_-4)},${y_hi-12} ${L(hw_)},${y_hi} C ${L(hw_+2)},${y_hi+30} ${L(hw_+4)},${y_ft-10} ${L(hw_-2)},${y_ft} L ${R(hw_-2)},${y_ft} C ${R(hw_+4)},${y_ft-10} ${R(hw_+2)},${y_hi+30} ${R(hw_)},${y_hi} C ${R(hw_-4)},${y_hi-12} ${R(ww+5)},${y_wa+20} ${R(ww)},${y_wa} C ${R(ww+4)},${y_wa-14} ${R(bw-6)},${y_bu+26} ${R(bw)},${y_bu} C ${R(bw+5)},${y_bu-16} ${R(sw+8)},${y_sh+22} ${R(sw)},${y_sh} Z`
-  }
+  function dressP(sw:number,bw:number,ww:number,hw_:number,tw:number,cw:number,sh:number) {
+  const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
+  const dressFlare = Math.max(hw_ * 0.18, 10)
+  const ft_w = hw_ + dressFlare
+  
+  return `M ${L(sw)},${y_sh} C ${L(sw+8)},${y_sh+22} ${L(bw+5)},${y_bu-16} ${L(bw)},${y_bu} C ${L(bw-6)},${y_bu+26} ${L(ww+4)},${y_wa-14} ${L(ww)},${y_wa} C ${L(ww+5)},${y_wa+20} ${L(hw_-4)},${y_hi-12} ${L(hw_)},${y_hi} C ${L(hw_+2)},${y_hi+24} ${L(tw+6)},${y_th-8} ${L(tw+8)},${y_th} C ${L(tw+8)},${y_th+18} ${L(ft_w-4)},${y_kn-6} ${L(ft_w-2)},${y_kn} C ${L(ft_w-2)},${y_kn+20} ${L(ft_w)},${y_ca-4} ${L(ft_w)},${y_ca} C ${L(ft_w)},${y_ca+14} ${L(ft_w+2)},${y_ft-8} ${L(ft_w+4)},${y_ft} L ${R(ft_w+4)},${y_ft} C ${R(ft_w+2)},${y_ft-8} ${R(ft_w)},${y_ca+14} ${R(ft_w)},${y_ca} C ${R(ft_w)},${y_ca-4} ${R(ft_w-2)},${y_kn+20} ${R(ft_w-2)},${y_kn} C ${R(ft_w-4)},${y_kn-6} ${R(tw+8)},${y_th+18} ${R(tw+8)},${y_th} C ${R(tw+6)},${y_th-8} ${R(hw_+2)},${y_hi+24} ${R(hw_)},${y_hi} C ${R(hw_-4)},${y_hi-12} ${R(ww+5)},${y_wa+20} ${R(ww)},${y_wa} C ${R(ww+4)},${y_wa-14} ${R(bw-6)},${y_bu+26} ${R(bw)},${y_bu} C ${R(bw+5)},${y_bu-16} ${R(sw+8)},${y_sh+22} ${R(sw)},${y_sh} Z`
+}
   function armP(s:number,sw:number,sh:number) {
     const ax=CX+s*sw+sh, ay=y_sh+10, ex=CX+s*(sw+28)+sh, ey=y_sh+102, hx=CX+s*(sw+10)+sh, hy=y_sh+198
     return `M ${ax},${ay} C ${ax+s*16},${ay+26} ${ex-s*5},${ey-24} ${ex},${ey} C ${ex+s*4},${ey+32} ${hx+s*9},${hy-32} ${hx},${hy}`
@@ -84,7 +87,7 @@ function buildAvatar(result: any, dressB64: string|null): string {
   }
 
   const initBd=bodyP(sh_w,bu_w,wa_w,hi_w,th_w,ca_w,0)
-  const initDr=dressP(sh_w,bu_w,wa_w,hi_w,0)
+  const initDr=dressP(sh_w,bu_w,wa_w,hi_w,th_w,ca_w,0)
   const initLa=armP(-1,sh_w,0), initRa=armP(1,sh_w,0)
   const initNk=neckP(nw,0)
 
@@ -94,9 +97,16 @@ function buildAvatar(result: any, dressB64: string|null): string {
     ? `<clipPath id="dCl"><path id="dClP" d="${initDr}"/></clipPath>`
     : ''
   const dressLayer = dressB64
-    ? `<image id="dImg" href="data:image/png;base64,${dressB64}" x="${CX-dressImgW/2}" y="${y_sh}" width="${dressImgW}" height="${dressImgH}" clip-path="url(#dCl)" preserveAspectRatio="xMidYMid slice" opacity="0.96"/>
-       <path d="${initDr}" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="1.5"/>`
-    : ''
+  ? `<g filter="url(#dressShade)">
+       <image id="dImg" href="data:image/png;base64,${dressB64}" 
+              x="${CX-dressImgW/2}" y="${y_sh-10}" 
+              width="${dressImgW}" height="${dressImgH}" 
+              clip-path="url(#dCl)" 
+              preserveAspectRatio="xMidYMid slice" 
+              opacity="0.97"/>
+       <path d="${initDr}" fill="none" stroke="rgba(0,0,0,0.12)" stroke-width="1.5"/>
+     </g>`
+  : ''
   const sleeveLayer = dressB64
     ? `<path id="la2" d="${initLa}" fill="none" stroke="${skin_mid}" stroke-width="${Math.max(10,arm_w-4)}" stroke-linecap="round"/>
        <ellipse id="lh2" cx="${CX-sh_w-10}" cy="${y_sh+205}" rx="${ah}" ry="${ah+2}" fill="${skin}"/>
@@ -161,9 +171,27 @@ function bodyPath(sw,bw,ww,hw,tw,cw,sh){
   var L=function(v){return CX-v+sh;},R=function(v){return CX+v+sh;};
   return 'M '+L(sw)+','+YSH+' C '+L(sw+8)+','+(YSH+22)+' '+L(bw+5)+','+(YBU-16)+' '+L(bw)+','+YBU+' C '+L(bw-6)+','+(YBU+26)+' '+L(ww+4)+','+(YWA-14)+' '+L(ww)+','+YWA+' C '+L(ww+5)+','+(YWA+20)+' '+L(hw-4)+','+(YHI-12)+' '+L(hw)+','+YHI+' C '+L(hw-2)+','+(YHI+28)+' '+L(tw+4)+','+(YTH-10)+' '+L(tw)+','+YTH+' C '+L(tw-2)+','+(YTH+20)+' '+L(cw+2)+','+(YKN-8)+' '+L(cw)+','+YKN+' C '+L(cw)+','+(YKN+24)+' '+L(cw-2)+','+(YCA-6)+' '+L(cw-2)+','+YCA+' C '+L(cw-2)+','+(YCA+16)+' '+L(cw)+','+(YFT-4)+' '+L(cw+2)+','+YFT+' L '+R(cw+2)+','+YFT+' C '+R(cw)+','+(YFT-4)+' '+R(cw-2)+','+(YCA+16)+' '+R(cw-2)+','+YCA+' C '+R(cw-2)+','+(YCA-6)+' '+R(cw)+','+(YKN+24)+' '+R(cw)+','+YKN+' C '+R(cw+2)+','+(YKN-8)+' '+R(tw-2)+','+(YTH+20)+' '+R(tw)+','+YTH+' C '+R(tw+4)+','+(YTH-10)+' '+R(hw-2)+','+(YHI+28)+' '+R(hw)+','+YHI+' C '+R(hw-4)+','+(YHI-12)+' '+R(ww+5)+','+(YWA+20)+' '+R(ww)+','+YWA+' C '+R(ww+4)+','+(YWA-14)+' '+R(bw-6)+','+(YBU+26)+' '+R(bw)+','+YBU+' C '+R(bw+5)+','+(YBU-16)+' '+R(sw+8)+','+(YSH+22)+' '+R(sw)+','+YSH+' Z';
 }
-function dressPath(sw,bw,ww,hw,sh){
+function dressPath(sw,bw,ww,hw,tw,cw,sh){
   var L=function(v){return CX-v+sh;},R=function(v){return CX+v+sh;};
-  return 'M '+L(sw)+','+YSH+' C '+L(sw+8)+','+(YSH+22)+' '+L(bw+5)+','+(YBU-16)+' '+L(bw)+','+YBU+' C '+L(bw-6)+','+(YBU+26)+' '+L(ww+4)+','+(YWA-14)+' '+L(ww)+','+YWA+' C '+L(ww+5)+','+(YWA+20)+' '+L(hw-4)+','+(YHI-12)+' '+L(hw)+','+YHI+' C '+L(hw+2)+','+(YHI+30)+' '+L(hw+4)+','+(YFT-10)+' '+L(hw-2)+','+YFT+' L '+R(hw-2)+','+YFT+' C '+R(hw+4)+','+(YFT-10)+' '+R(hw+2)+','+(YHI+30)+' '+R(hw)+','+YHI+' C '+R(hw-4)+','+(YHI-12)+' '+R(ww+5)+','+(YWA+20)+' '+R(ww)+','+YWA+' C '+R(ww+4)+','+(YWA-14)+' '+R(bw-6)+','+(YBU+26)+' '+R(bw)+','+YBU+' C '+R(bw+5)+','+(YBU-16)+' '+R(sw+8)+','+(YSH+22)+' '+R(sw)+','+YSH+' Z';
+  var dressFlare = Math.max(hw * 0.18, 10);
+  var ftW = hw + dressFlare;
+  
+  return 'M '+L(sw)+','+YSH+
+         ' C '+L(sw+8)+','+(YSH+22)+' '+L(bw+5)+','+(YBU-16)+' '+L(bw)+','+YBU+
+         ' C '+L(bw-6)+','+(YBU+26)+' '+L(ww+4)+','+(YWA-14)+' '+L(ww)+','+YWA+
+         ' C '+L(ww+5)+','+(YWA+20)+' '+L(hw-4)+','+(YHI-12)+' '+L(hw)+','+YHI+
+         ' C '+L(hw+2)+','+(YHI+24)+' '+L(tw+6)+','+(YTH-8)+' '+L(tw+8)+','+YTH+
+         ' C '+L(tw+8)+','+(YTH+18)+' '+L(ftW-4)+','+(YKN-6)+' '+L(ftW-2)+','+YKN+
+         ' C '+L(ftW-2)+','+(YKN+20)+' '+L(ftW)+','+(YCA-4)+' '+L(ftW)+','+YCA+
+         ' C '+L(ftW)+','+(YCA+14)+' '+L(ftW+2)+','+(YFT-8)+' '+L(ftW+4)+','+YFT+
+         ' L '+R(ftW+4)+','+YFT+
+         ' C '+R(ftW+2)+','+(YFT-8)+' '+R(ftW)+','+(YCA+14)+' '+R(ftW)+','+YCA+
+         ' C '+R(ftW)+','+(YCA-4)+' '+R(ftW-2)+','+(YKN+20)+' '+R(ftW-2)+','+YKN+
+         ' C '+R(ftW-4)+','+(YKN-6)+' '+R(tw+8)+','+(YTH+18)+' '+R(tw+8)+','+YTH+
+         ' C '+R(tw+6)+','+(YTH-8)+' '+R(hw+2)+','+(YHI+24)+' '+R(hw)+','+YHI+
+         ' C '+R(hw-4)+','+(YHI-12)+' '+R(ww+5)+','+(YWA+20)+' '+R(ww)+','+YWA+
+         ' C '+R(ww+4)+','+(YWA-14)+' '+R(bw-6)+','+(YBU+26)+' '+R(bw)+','+YBU+
+         ' C '+R(bw+5)+','+(YBU-16)+' '+R(sw+8)+','+(YSH+22)+' '+R(sw)+','+YSH+' Z';
 }
 function armPath(s,sw,sh){
   var ax=CX+s*sw+sh,ay=YSH+10,ex=CX+s*(sw+28)+sh,ey=YSH+102,hx=CX+s*(sw+10)+sh,hy=YSH+198;
@@ -193,7 +221,7 @@ function upd(a){
   }
   if(hasDress){
     // Clip path rotates WITH body silhouette
-    var dc=document.getElementById('dClP');if(dc)dc.setAttribute('d',dressPath(sw,bw,ww,hw,sh));
+  var dc=document.getElementById('dClP');if(dc)dc.setAttribute('d',dressPath(sw,bw,ww,hw,tw,cw,sh));
     // Dress IMAGE stays front-facing (no +sh) — only width scales for perspective
     var di=document.getElementById('dImg');
     if(di){
