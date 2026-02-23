@@ -1,6 +1,9 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
+// ══════════════════════════════════════════════════════════════════
+//  PRODUCT DATA & COLOR MAPPINGS
+// ══════════════════════════════════════════════════════════════════
 const COLOR_HEX: Record<string,string> = {
   "Pastel Pink":"#FFD1DC","Lavender":"#E6D0FF","Mint Green":"#AAFFDD","Sky Blue":"#87CEEB",
   "Blush Rose":"#FFB6C1","Butter Yellow":"#FFFACD","Soft Peach":"#FFDAB9","Warm Coral":"#FF7F50",
@@ -18,7 +21,7 @@ const PRODUCTS: Record<string,any[]> = {
     {name:"Bodycon Party Dress",body:["Hourglass","Full Hourglass"],colors:["Cobalt","Crimson","Pure White"],sizes:["XS","S","M","L","XL"],amazon:"https://www.amazon.in/s?k=women+bodycon+party+dress",flipkart:"https://www.flipkart.com/search?q=women+bodycon+dress"},
     {name:"Empire Waist Maxi",body:["Apple","Pear","Petite"],colors:["Lavender","Soft Peach","Mint Green"],sizes:["XS","S","M","L","XL","XXL"],amazon:"https://www.amazon.in/s?k=women+empire+waist+maxi",flipkart:"https://www.flipkart.com/search?q=women+empire+waist+maxi"},
     {name:"Anarkali Suit",body:["Apple","Pear","Full Hourglass","Rectangle"],colors:["Deep Burgundy","Cobalt","Jade"],sizes:["S","M","L","XL","XXL","XXXL"],amazon:"https://www.amazon.in/s?k=women+anarkali+suit",flipkart:"https://www.flipkart.com/search?q=women+anarkali"},
-    {name:"Printed Saree",body:["Pear","Hourglass","Apple","Rectangle","Full Hourglass"],colors:["Royal Blue","Crimson","Mustard","Teal"],sizes:["Free Size"],amazon:"https://www.amazon.in/s?k=women+printed+saree",flipkart:"https://www.flipkart.com/search?q=women+printed+saree"},
+    {name:"Printed Saree",body:["Pear","Hourglass","Apple","Rectangle","Full Hourglass","Oval"],colors:["Royal Blue","Crimson","Mustard","Teal"],sizes:["Free Size"],amazon:"https://www.amazon.in/s?k=women+printed+saree",flipkart:"https://www.flipkart.com/search?q=women+printed+saree"},
     {name:"Salwar Kameez",body:["Pear","Rectangle","Apple","Hourglass"],colors:["Terracotta","Mustard","Cobalt"],sizes:["XS","S","M","L","XL","XXL","XXXL"],amazon:"https://www.amazon.in/s?k=women+salwar+kameez",flipkart:"https://www.flipkart.com/search?q=women+salwar+kameez"},
     {name:"Fit & Flare Dress",body:["Hourglass","Pear","Rectangle"],colors:["Blush Rose","Sky Blue","Mint Green"],sizes:["XS","S","M","L","XL"],amazon:"https://www.amazon.in/s?k=women+fit+flare+dress",flipkart:"https://www.flipkart.com/search?q=women+fit+flare"},
   ],
@@ -34,11 +37,17 @@ const PRODUCTS: Record<string,any[]> = {
   ],
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  UTILITY FUNCTIONS
+// ══════════════════════════════════════════════════════════════════
 function lighten(hex:string, f:number) {
   const h = hex.replace('#','')
   return '#'+[0,2,4].map(i=>Math.max(0,Math.min(255,Math.round(parseInt(h.slice(i,i+2),16)*f))).toString(16).padStart(2,'0')).join('')
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  3D AVATAR BUILDER
+// ══════════════════════════════════════════════════════════════════
 function buildAvatar(result: any, dressB64: string|null): string {
   const skin     = result.skin_hex || '#c8956c'
   const skinTone = result.skin_tone || 'Medium'
@@ -64,7 +73,8 @@ function buildAvatar(result: any, dressB64: string|null): string {
   const skin_mid=lighten(skin,0.84)
 
   const isMen = result.category === 'Men'
-  // ── Inline SVG face: soft kawaii style, no external API ─────────────
+  
+  // Face rendering code (kawaii style)
   const HC:any={Fair:'#6B4416',Light:'#3C1E0C',Medium:'#200A02',Tan:'#120602',Deep:'#060100'}
   const HS:any={Fair:'#AA7228',Light:'#5A301A',Medium:'#2E0E06',Tan:'#1A0604',Deep:'#0A0302'}
   const hc=HC[skinTone]||HC.Medium
@@ -74,16 +84,13 @@ function buildAvatar(result: any, dressB64: string|null): string {
 
   function drawFace(cx:number,cy:number,r:number,xsh:number):string{
     const x=cx+xsh, s=r*0.86
-    // Hair
     const hTW=`<ellipse cx="${x}" cy="${cy-s*.13}" rx="${s*1.07}" ry="${s*.72}" fill="${hc}"/>`
     const hLW=`<path d="M ${x-s*.92},${cy} C ${x-s*1.22},${cy+s*.45} ${x-s*1.14},${cy+s*.90} ${x-s*.82},${cy+s*1.05} C ${x-s*.70},${cy+s*.75} ${x-s*.72},${cy+s*.34} ${x-s*.88},${cy+s*.05}Z" fill="${hc}"/>`
     const hRW=`<path d="M ${x+s*.92},${cy} C ${x+s*1.22},${cy+s*.45} ${x+s*1.14},${cy+s*.90} ${x+s*.82},${cy+s*1.05} C ${x+s*.70},${cy+s*.75} ${x+s*.72},${cy+s*.34} ${x+s*.88},${cy+s*.05}Z" fill="${hc}"/>`
     const hHi=`<path d="M ${x-s*.50},${cy-s*.82} C ${x-s*.16},${cy-s*.98} ${x+s*.14},${cy-s*.92} ${x-s*.06},${cy-s*.70}" fill="none" stroke="${hs_}" stroke-width="${s*.055}" stroke-linecap="round"/>`
     const hTM=`<ellipse cx="${x}" cy="${cy-s*.60}" rx="${s*1.02}" ry="${s*.53}" fill="${hc}"/>`
     const hair=isMen?(hTM):(hLW+hRW+hTW+hHi)
-    // Face oval (after hair so face sits on top)
     const oval=`<ellipse cx="${x}" cy="${cy}" rx="${s}" ry="${s*1.09}" fill="${skin}"/>`
-    // Eyes
     const er=s*.174, eLx=x-s*.295, eRx=x+s*.295, ey=cy+s*.04
     const eW=`<ellipse cx="${eLx}" cy="${ey}" rx="${er}" ry="${er*1.09}" fill="white"/><ellipse cx="${eRx}" cy="${ey}" rx="${er}" ry="${er*1.09}" fill="white"/>`
     const eI=`<ellipse cx="${eLx}" cy="${ey+er*.07}" rx="${er*.66}" ry="${er*.79}" fill="${ec}"/><ellipse cx="${eRx}" cy="${ey+er*.07}" rx="${er*.66}" ry="${er*.79}" fill="${ec}"/>`
@@ -93,14 +100,11 @@ function buildAvatar(result: any, dressB64: string|null): string {
     const bW=isMen?er*.30:er*.21
     const bL=`<path d="M ${eLx-er*1.09},${ey-er*1.55} Q ${eLx},${ey-er*1.87} ${eLx+er*.87},${ey-er*1.46}" fill="none" stroke="${hc}" stroke-width="${bW}" stroke-linecap="round"/>`
     const bR=`<path d="M ${eRx-er*.87},${ey-er*1.46} Q ${eRx},${ey-er*1.87} ${eRx+er*1.09},${ey-er*1.55}" fill="none" stroke="${hc}" stroke-width="${bW}" stroke-linecap="round"/>`
-    // Nose
     const ny=cy+s*.27
     const ns=`<path d="M ${x-s*.065},${ny-s*.04} Q ${x},${ny+s*.05} ${x+s*.065},${ny-s*.04}" fill="none" stroke="${lighten(skin,.70)}" stroke-width="${s*.042}" stroke-linecap="round"/>`
-    // Mouth — gentle upward curve = always smiling
     const my=cy+s*.46
     const mt=`<path d="M ${x-s*.195},${my} Q ${x},${my+s*.14} ${x+s*.195},${my}" fill="${lp}" stroke="${lp}" stroke-width="${s*.036}" stroke-linecap="round"/>
     <path d="M ${x-s*.195},${my} Q ${x},${my-s*.03} ${x+s*.195},${my}" fill="none" stroke="${lighten(lp,1.28)}" stroke-width="${s*.02}"/>`
-    // Blush (women only)
     const blush=isMen?'':`<ellipse cx="${x-s*.46}" cy="${cy+s*.27}" rx="${s*.17}" ry="${s*.09}" fill="${lp}" opacity=".17"/><ellipse cx="${x+s*.46}" cy="${cy+s*.27}" rx="${s*.17}" ry="${s*.09}" fill="${lp}" opacity=".17"/>`
     return hair+oval+blush+eW+eI+eP+eSh+lsh+bL+bR+ns+mt
   }
@@ -109,17 +113,18 @@ function buildAvatar(result: any, dressB64: string|null): string {
     const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
     return `M ${L(sw)},${y_sh} C ${L(sw+8)},${y_sh+22} ${L(bw+5)},${y_bu-16} ${L(bw)},${y_bu} C ${L(bw-6)},${y_bu+26} ${L(ww+4)},${y_wa-14} ${L(ww)},${y_wa} C ${L(ww+5)},${y_wa+20} ${L(hw_-4)},${y_hi-12} ${L(hw_)},${y_hi} C ${L(hw_-2)},${y_hi+28} ${L(tw+4)},${y_th-10} ${L(tw)},${y_th} C ${L(tw-2)},${y_th+20} ${L(cw+2)},${y_kn-8} ${L(cw)},${y_kn} C ${L(cw)},${y_kn+24} ${L(cw-2)},${y_ca-6} ${L(cw-2)},${y_ca} C ${L(cw-2)},${y_ca+16} ${L(cw)},${y_ft-4} ${L(cw+2)},${y_ft} L ${R(cw+2)},${y_ft} C ${R(cw)},${y_ft-4} ${R(cw-2)},${y_ca+16} ${R(cw-2)},${y_ca} C ${R(cw-2)},${y_ca-6} ${R(cw)},${y_kn+24} ${R(cw)},${y_kn} C ${R(cw+2)},${y_kn-8} ${R(tw-2)},${y_th+20} ${R(tw)},${y_th} C ${R(tw+4)},${y_th-10} ${R(hw_-2)},${y_hi+28} ${R(hw_)},${y_hi} C ${R(hw_-4)},${y_hi-12} ${R(ww+5)},${y_wa+20} ${R(ww)},${y_wa} C ${R(ww+4)},${y_wa-14} ${R(bw-6)},${y_bu+26} ${R(bw)},${y_bu} C ${R(bw+5)},${y_bu-16} ${R(sw+8)},${y_sh+22} ${R(sw)},${y_sh} Z`
   }
+  
   function dressP(sw:number,bw:number,ww:number,hw_:number,sh:number) {
-    // Add generous padding (+18 shoulder, +12 bust) so shirts/jackets with
-    // wide shoulders never show body skin through the sides of the garment.
     const sw2=sw+18, bw2=bw+12, ww2=ww+4, hw2=hw_+6
     const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
     return `M ${L(sw2)},${y_sh} C ${L(sw2+8)},${y_sh+22} ${L(bw2+5)},${y_bu-16} ${L(bw2)},${y_bu} C ${L(bw2-6)},${y_bu+26} ${L(ww2+4)},${y_wa-14} ${L(ww2)},${y_wa} C ${L(ww2+5)},${y_wa+20} ${L(hw2-4)},${y_hi-12} ${L(hw2)},${y_hi} C ${L(hw2+2)},${y_hi+30} ${L(hw2+4)},${y_ft-10} ${L(hw2-2)},${y_ft} L ${R(hw2-2)},${y_ft} C ${R(hw2+4)},${y_ft-10} ${R(hw2+2)},${y_hi+30} ${R(hw2)},${y_hi} C ${R(hw2-4)},${y_hi-12} ${R(ww2+5)},${y_wa+20} ${R(ww2)},${y_wa} C ${R(ww2+4)},${y_wa-14} ${R(bw2-6)},${y_bu+26} ${R(bw2)},${y_bu} C ${R(bw2+5)},${y_bu-16} ${R(sw2+8)},${y_sh+22} ${R(sw2)},${y_sh} Z`
   }
+  
   function armP(s:number,sw:number,sh:number) {
     const ax=CX+s*sw+sh, ay=y_sh+10, ex=CX+s*(sw+28)+sh, ey=y_sh+102, hx=CX+s*(sw+10)+sh, hy=y_sh+198
     return `M ${ax},${ay} C ${ax+s*16},${ay+26} ${ex-s*5},${ey-24} ${ex},${ey} C ${ex+s*4},${ey+32} ${hx+s*9},${hy-32} ${hx},${hy}`
   }
+  
   function neckP(nn:number,sh:number) {
     return `M ${CX-nn+sh},${y_nek+4} C ${CX-nn+2+sh},${y_nek+14} ${CX-nn+2+sh},${y_sh-8} ${CX-nn+3+sh},${y_sh} L ${CX+nn-3+sh},${y_sh} C ${CX+nn-2+sh},${y_sh-8} ${CX+nn-2+sh},${y_nek+14} ${CX+nn+sh},${y_nek+4} Z`
   }
@@ -189,10 +194,8 @@ var NW=${nw},ARW=${arm_w},AH=${ah};
 var YSH=${y_sh},YBU=${y_bu},YWA=${y_wa},YHI=${y_hi},YTH=${y_th},YKN=${y_kn},YCA=${y_ca},YFT=${y_ft};
 var YNER=${y_nek},YHCY=${y_hcy};
 var BT="${bodyType}",hasDress=${dressB64?'true':'false'};
-// Always start at FRONT view when dress is loaded
 var angle=hasDress?0:0,spinning=false,dragX=null,dragA=0;
 var DW=${dressImgW};
-var spinning=false,dragX=null,dragA=0;
 function m360(a){return((a%360)+360)%360;}
 function vn(a){a=m360(a);if(a<22)return'FRONT';if(a<67)return'FRONT-R';if(a<112)return'RIGHT';if(a<157)return'BACK-R';if(a<202)return'BACK';if(a<247)return'BACK-L';if(a<292)return'LEFT';return'FRONT-L';}
 function S(id,attr,val){var e=document.getElementById(id);if(e)e.setAttribute(attr,val);}
@@ -202,8 +205,6 @@ function bodyPath(sw,bw,ww,hw,tw,cw,sh){
   return 'M '+L(sw)+','+YSH+' C '+L(sw+8)+','+(YSH+22)+' '+L(bw+5)+','+(YBU-16)+' '+L(bw)+','+YBU+' C '+L(bw-6)+','+(YBU+26)+' '+L(ww+4)+','+(YWA-14)+' '+L(ww)+','+YWA+' C '+L(ww+5)+','+(YWA+20)+' '+L(hw-4)+','+(YHI-12)+' '+L(hw)+','+YHI+' C '+L(hw-2)+','+(YHI+28)+' '+L(tw+4)+','+(YTH-10)+' '+L(tw)+','+YTH+' C '+L(tw-2)+','+(YTH+20)+' '+L(cw+2)+','+(YKN-8)+' '+L(cw)+','+YKN+' C '+L(cw)+','+(YKN+24)+' '+L(cw-2)+','+(YCA-6)+' '+L(cw-2)+','+YCA+' C '+L(cw-2)+','+(YCA+16)+' '+L(cw)+','+(YFT-4)+' '+L(cw+2)+','+YFT+' L '+R(cw+2)+','+YFT+' C '+R(cw)+','+(YFT-4)+' '+R(cw-2)+','+(YCA+16)+' '+R(cw-2)+','+YCA+' C '+R(cw-2)+','+(YCA-6)+' '+R(cw)+','+(YKN+24)+' '+R(cw)+','+YKN+' C '+R(cw+2)+','+(YKN-8)+' '+R(tw-2)+','+(YTH+20)+' '+R(tw)+','+YTH+' C '+R(tw+4)+','+(YTH-10)+' '+R(hw-2)+','+(YHI+28)+' '+R(hw)+','+YHI+' C '+R(hw-4)+','+(YHI-12)+' '+R(ww+5)+','+(YWA+20)+' '+R(ww)+','+YWA+' C '+R(ww+4)+','+(YWA-14)+' '+R(bw-6)+','+(YBU+26)+' '+R(bw)+','+YBU+' C '+R(bw+5)+','+(YBU-16)+' '+R(sw+8)+','+(YSH+22)+' '+R(sw)+','+YSH+' Z';
 }
 function dressPath(sw,bw,ww,hw,sh){
-  // +18 shoulder, +12 bust — same padding as TypeScript dressP
-  // ensures shirts/jackets never show body skin through the sides
   var sw2=sw+18,bw2=bw+12,ww2=ww+4,hw2=hw+6;
   var L=function(v){return CX-v+sh;},R=function(v){return CX+v+sh;};
   return 'M '+L(sw2)+','+YSH+' C '+L(sw2+8)+','+(YSH+22)+' '+L(bw2+5)+','+(YBU-16)+' '+L(bw2)+','+YBU+' C '+L(bw2-6)+','+(YBU+26)+' '+L(ww2+4)+','+(YWA-14)+' '+L(ww2)+','+YWA+' C '+L(ww2+5)+','+(YWA+20)+' '+L(hw2-4)+','+(YHI-12)+' '+L(hw2)+','+YHI+' C '+L(hw2+2)+','+(YHI+30)+' '+L(hw2+4)+','+(YFT-10)+' '+L(hw2-2)+','+YFT+' L '+R(hw2-2)+','+YFT+' C '+R(hw2+4)+','+(YFT-10)+' '+R(hw2+2)+','+(YHI+30)+' '+R(hw2)+','+YHI+' C '+R(hw2-4)+','+(YHI-12)+' '+R(ww2+5)+','+(YWA+20)+' '+R(ww2)+','+YWA+' C '+R(ww2+4)+','+(YWA-14)+' '+R(bw2-6)+','+(YBU+26)+' '+R(bw2)+','+YBU+' C '+R(bw2+5)+','+(YBU-16)+' '+R(sw2+8)+','+(YSH+22)+' '+R(sw2)+','+YSH+' Z';
@@ -234,15 +235,12 @@ function upd(a){
     S('lh','cx',CX-sw-10+sh);S('rh','cx',CX+sw+10+sh);
   }
   if(hasDress){
-    // Clip path rotates WITH body silhouette
     var dc=document.getElementById('dClP');if(dc)dc.setAttribute('d',dressPath(sw,bw,ww,hw,sh));
-    // Dress IMAGE stays front-facing (no +sh) — only width scales for perspective
     var di=document.getElementById('dImg');
     if(di){
       var sW=DW*wS;
       di.setAttribute('width',sW.toFixed(1));
-      di.setAttribute('x',(CX-sW/2+sh).toFixed(1));  // sh = body horizontal offset during rotation
-      // Fade dress when viewed from back
+      di.setAttribute('x',(CX-sW/2+sh).toFixed(1));
       di.style.opacity=(0.52+Math.max(0,cosA)*0.44).toFixed(2);
     }
     S('la2','d',armPath(-1,sw,sh));S('ra2','d',armPath(1,sw,sh));
@@ -275,61 +273,96 @@ upd(0);
 }
 
 export default function Home() {
-  const [step,         setStep]        = useState<'upload'|'result'>('upload')
-  const [loading,      setLoading]     = useState(false)
-  const [error,        setError]       = useState('')
-  const [result,       setResult]      = useState<any>(null)
-  const [visImg,       setVisImg]      = useState<string|null>(null)
-  const [preview,      setPreview]     = useState<string|null>(null)
-  const [category,     setCategory]    = useState('Women')
-  const [dressB64,     setDressB64]    = useState<string|null>(null)
-  const [dressPreview, setDressPreview]= useState<string|null>(null)
-  const [dressLoading, setDressLoading]= useState(false)
-  const [activeTab,    setActiveTab]   = useState<'avatar'|'tryon'|'shop'>('avatar')
-  const fileRef  = useRef<HTMLInputElement>(null)
+  const [step, setStep] = useState<'upload'|'result'>('upload')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState<any>(null)
+  const [visImg, setVisImg] = useState<string|null>(null)
+  const [preview, setPreview] = useState<string|null>(null)
+  const [category, setCategory] = useState('Women')
+  const [dressB64, setDressB64] = useState<string|null>(null)
+  const [dressPreview, setDressPreview] = useState<string|null>(null)
+  const [dressLoading, setDressLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<'avatar'|'tryon'|'shop'>('avatar')
+  const fileRef = useRef<HTMLInputElement>(null)
   const dressRef = useRef<HTMLInputElement>(null)
 
   const analyze = async (file: File) => {
-    setLoading(true); setError('')
+    setLoading(true)
+    setError('')
     try {
-      const form = new FormData(); form.append('file',file); form.append('category',category)
-      const data = await fetch('/api/analyze',{method:'POST',body:form}).then(r=>r.json())
-      if(data.error){setError(data.error);setLoading(false);return}
-      setResult(data); if(data.vis_jpeg_b64)setVisImg(`data:image/jpeg;base64,${data.vis_jpeg_b64}`)
+      const form = new FormData()
+      form.append('file', file)
+      form.append('category', category)
+      
+      const data = await fetch('/api/analyze', {method:'POST', body:form}).then(r=>r.json())
+      
+      if(data.error) {
+        setError(data.error)
+        setLoading(false)
+        return
+      }
+      
+      setResult(data)
+      if(data.vis_jpeg_b64) setVisImg(`data:image/jpeg;base64,${data.vis_jpeg_b64}`)
       setStep('result')
-    } catch(e:any){setError(e.message)}
+    } catch(e:any) {
+      setError(e.message)
+    }
     setLoading(false)
   }
 
   const tryOn = async (file: File) => {
-    setDressLoading(true); setDressPreview(URL.createObjectURL(file))
+    setDressLoading(true)
+    setDressPreview(URL.createObjectURL(file))
     try {
-      const form = new FormData(); form.append('file',file)
-      const data = await fetch('/api/extract-dress',{method:'POST',body:form}).then(r=>r.json())
-      if(data.error){setError(data.error);setDressLoading(false);return}
-      setDressB64(data.dress_b64); setDressPreview(`data:image/png;base64,${data.dress_b64}`)
+      const form = new FormData()
+      form.append('file', file)
+      const data = await fetch('/api/extract-dress', {method:'POST', body:form}).then(r=>r.json())
+      if(data.error) {
+        setError(data.error)
+        setDressLoading(false)
+        return
+      }
+      setDressB64(data.dress_b64)
+      setDressPreview(`data:image/png;base64,${data.dress_b64}`)
       setActiveTab('tryon')
-    } catch(e:any){setError(e.message)}
+    } catch(e:any) {
+      setError(e.message)
+    }
     setDressLoading(false)
   }
 
-  const clearDress = () => {setDressB64(null);setDressPreview(null)}
+  const clearDress = () => {
+    setDressB64(null)
+    setDressPreview(null)
+  }
 
   const WOMEN_BUST: Record<string,number> = {XS:76,S:82,M:88,L:94,XL:100,XXL:108,XXXL:116,'4XL':124}
+  
   const fitBadges = () => {
     if(!result) return null
     const std = WOMEN_BUST[result.size]??result.bust_cm
-    return [['Bust/Chest', std-result.bust_cm],['Waist',(std-14)-result.waist_cm],['Hip',(std+6)-result.hip_cm]].map(([zone,diff])=>{
+    return [
+      ['Bust/Chest', std-result.bust_cm],
+      ['Waist',(std-14)-result.waist_cm],
+      ['Hip',(std+6)-result.hip_cm]
+    ].map(([zone,diff])=>{
       const d=diff as number
       const [icon,lbl,col]=d>=0&&d<6?['✅','Perfect Fit','#22c55e']:d>=6?['⬆','Slightly Loose','#eab308']:d>=-5?['⚠','Snug Fit','#f97316']:['❌','Too Tight','#ef4444']
-      return (<div key={zone as string} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:'#07071a',borderLeft:`4px solid ${col}`,borderRadius:6,marginBottom:5,fontSize:12}}>
-        <span>{icon}</span><div><div style={{color:col,fontWeight:700}}>{zone as string}</div><div style={{color:'#555',fontSize:11}}>{lbl} ({d>=0?'+':''}{d.toFixed(1)}cm)</div></div>
-      </div>)
+      return (
+        <div key={zone as string} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:'#07071a',borderLeft:`4px solid ${col}`,borderRadius:6,marginBottom:5,fontSize:12}}>
+          <span>{icon}</span>
+          <div>
+            <div style={{color:col,fontWeight:700}}>{zone as string}</div>
+            <div style={{color:'#555',fontSize:11}}>{lbl} ({d>=0?'+':''}{d.toFixed(1)}cm)</div>
+          </div>
+        </div>
+      )
     })
   }
 
   const avatarFrame = (id: string) => {
-    // Key MUST change when dressB64 changes — otherwise iframe won't re-render
     const frameKey = `${id}-${dressB64 ? dressB64.slice(-12) : 'bare'}`
     return (
       <div style={{background:'#08081a',borderRadius:16,overflow:'hidden',minHeight:480}}>
@@ -339,49 +372,110 @@ export default function Home() {
   }
 
   const tabBtn=(id:string,lbl:string)=>(
-    <button onClick={()=>setActiveTab(id as any)} style={{padding:'10px 18px',border:'none',cursor:'pointer',fontWeight:700,fontSize:13,background:'transparent',color:activeTab===id?'#e8c99a':'#4040a0',borderBottom:activeTab===id?'2px solid #e8c99a':'2px solid transparent',whiteSpace:'nowrap'}}>{lbl}</button>
+    <button onClick={()=>setActiveTab(id as any)} style={{padding:'10px 18px',border:'none',cursor:'pointer',fontWeight:700,fontSize:13,background:'transparent',color:activeTab===id?'#22c55e':'#4040a0',borderBottom:activeTab===id?'2px solid #22c55e':'2px solid transparent',whiteSpace:'nowrap'}}>{lbl}</button>
   )
 
   return (
     <main style={{minHeight:'100vh',background:'#06061a',color:'#e8e0ff',fontFamily:'system-ui,sans-serif'}}>
-      <div style={{background:'linear-gradient(135deg,#1a0938,#0d0628)',padding:'18px 24px',borderBottom:'1px solid #1e1848',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
+      {/* Header */}
+      <div style={{background:'linear-gradient(135deg,#0a2818,#0d0628)',padding:'18px 24px',borderBottom:'1px solid #1e1848',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
         <div>
-          <h1 style={{margin:0,fontSize:'1.45rem',fontWeight:800,color:'#e8c99a'}}>👗 3D Fashion Stylist Pro</h1>
-          <p style={{margin:'2px 0 0',color:'#7060a0',fontSize:'0.76rem'}}>AI body analysis · 3D avatar with legs · Virtual try-on · Smart recommendations</p>
+          <h1 style={{margin:0,fontSize:'1.5rem',fontWeight:800,color:'#22c55e',textShadow:'0 0 10px #22c55e50'}}>
+            🚀 Fashion Stylist Pro v19
+          </h1>
+          <p style={{margin:'4px 0 0',color:'#7060a0',fontSize:'0.78rem'}}>
+            <span style={{background:'#22c55e20',color:'#22c55e',padding:'2px 8px',borderRadius:4,fontSize:10,fontWeight:700,marginRight:6}}>MEDIAPIPE</span>
+            Advanced AI · 33-Point Pose Detection · Smart Clothing Analysis
+          </p>
         </div>
         {result&&<div style={{display:'flex',alignItems:'center',gap:10,background:'#1a1848',border:'1px solid #2e2868',borderRadius:12,padding:'7px 14px'}}>
           <span style={{width:12,height:12,borderRadius:'50%',background:result.skin_hex,border:'1px solid #888',display:'inline-block'}}/>
-          <span style={{fontWeight:800,color:'#e8c99a'}}>{result.size}</span>
+          <span style={{fontWeight:800,color:'#22c55e'}}>{result.size}</span>
           <span style={{color:'#8060c0',fontSize:12}}>{result.body_icon} {result.body_type}</span>
+          {result.method && result.method.includes('MediaPipe') && (
+            <span style={{background:'#22c55e20',color:'#22c55e',padding:'2px 6px',borderRadius:4,fontSize:9,fontWeight:700}}>MP</span>
+          )}
         </div>}
       </div>
 
       <div style={{maxWidth:1140,margin:'0 auto',padding:'18px 14px'}}>
         {step==='upload'&&(
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(290px,1fr))',gap:18}}>
+            {/* Upload section */}
             <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:16,padding:22}}>
-              <div style={{color:'#e8c99a',fontWeight:800,fontSize:15,marginBottom:6}}>📸 Upload Full-Body Photo</div>
+              <div style={{color:'#22c55e',fontWeight:800,fontSize:15,marginBottom:6}}>📸 Upload Full-Body Photo</div>
               <div style={{color:'#5050a0',fontSize:12,marginBottom:14}}>Stand straight, facing camera, full body visible head to toe</div>
+              
               <div style={{display:'flex',gap:8,marginBottom:14}}>
-                {['Women','Men','Kids'].map(c=><button key={c} onClick={()=>setCategory(c)} style={{flex:1,padding:'8px 0',border:`1px solid ${category===c?'#8060e0':'#1e1848'}`,borderRadius:8,cursor:'pointer',fontWeight:700,fontSize:12,background:category===c?'#2a1f60':'#0d0d2a',color:category===c?'#e8c99a':'#5040a0'}}>{c}</button>)}
+                {['Women','Men','Kids'].map(c=><button key={c} onClick={()=>setCategory(c)} style={{flex:1,padding:'8px 0',border:`1px solid ${category===c?'#22c55e':'#1e1848'}`,borderRadius:8,cursor:'pointer',fontWeight:700,fontSize:12,background:category===c?'#1a2818':'#0d0d2a',color:category===c?'#22c55e':'#5040a0'}}>{c}</button>)}
               </div>
+              
               <div onClick={()=>fileRef.current?.click()} style={{border:'2px dashed #2a2860',borderRadius:12,padding:28,cursor:'pointer',background:'#0d0d2a',textAlign:'center',minHeight:180,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10}}>
                 {preview?<img src={preview} alt="preview" style={{maxHeight:200,borderRadius:8,objectFit:'contain'}}/>:<><div style={{fontSize:48}}>📷</div><div style={{color:'#4040a0',fontSize:13}}>Click or drop photo here</div><div style={{color:'#2a2a60',fontSize:11}}>JPG · PNG · WEBP</div></>}
               </div>
               <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f){setPreview(URL.createObjectURL(f));analyze(f)}}}/>
-              {loading&&<div style={{marginTop:12,color:'#8060e0',fontSize:13,textAlign:'center',padding:10,background:'#1a1848',borderRadius:8}}>⏳ Analysing body measurements...</div>}
-              {error&&<div style={{marginTop:12,padding:'10px 14px',background:'#2a0a0a',border:'1px solid #880000',borderRadius:8,color:'#ff8080',fontSize:12}}>❌ {error}</div>}
+              
+              {loading&&<div style={{marginTop:14,padding:14,background:'#1a2818',borderRadius:10,textAlign:'center',border:'1px solid #22c55e40'}}>
+                <div style={{fontSize:32,marginBottom:8}}>🔄</div>
+                <div style={{color:'#22c55e',fontSize:14,fontWeight:700,marginBottom:4}}>Analyzing with MediaPipe</div>
+                <div style={{color:'#6050a0',fontSize:11,marginBottom:10}}>Detecting 33 body landmarks + intelligent measurement</div>
+                <div style={{display:'flex',justifyContent:'center',gap:2}}>
+                  {[0,1,2].map(i=><div key={i} style={{width:6,height:6,borderRadius:'50%',background:'#22c55e',animation:`pulse 1.4s ease-in-out ${i*0.2}s infinite`}}/>)}
+                </div>
+              </div>}
+              <style jsx>{`
+                @keyframes pulse {
+                  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+                  50% { opacity: 1; transform: scale(1.2); }
+                }
+              `}</style>
+              
+              {error&&<div style={{marginTop:12,padding:'14px',background:'#2a0a0a',border:'1px solid #880000',borderRadius:10}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                  <span style={{fontSize:20}}>❌</span>
+                  <span style={{color:'#ff8080',fontWeight:700,fontSize:13}}>Analysis Failed</span>
+                </div>
+                <div style={{color:'#ff9090',fontSize:12,marginBottom:10}}>{error}</div>
+                <div style={{background:'#1a0505',border:'1px solid #440000',borderRadius:6,padding:'8px 10px',fontSize:11,color:'#ff6060'}}>
+                  <div style={{fontWeight:700,marginBottom:4,color:'#ff8080'}}>💡 Quick Fixes:</div>
+                  <div style={{marginBottom:2}}>• Ensure full body is visible (head to feet)</div>
+                  <div style={{marginBottom:2}}>• Stand straight with arms at sides</div>
+                  <div style={{marginBottom:2}}>• Use good lighting and plain background</div>
+                  <div>• Make sure photo is clear (not blurry)</div>
+                </div>
+              </div>}
             </div>
-            <div style={{background:'#10103a',border:'1px solid #1e1848',borderRadius:16,padding:22}}>
-              <div style={{color:'#e8c99a',fontWeight:700,fontSize:14,marginBottom:14}}>✨ What you get</div>
-              {[['📏','Accurate body measurements (shoulder, bust, waist, hip)'],['👗','Size recommendation — Indian standard chart'],['🎨','Personalised colour palette for your skin tone'],['👤','Full-body 3D avatar (with legs!) — drag to rotate'],['🪄','Virtual try-on — see dresses fitted on YOUR body'],['🛍','Shopping links with your exact size on Amazon & Flipkart']].map(([e,t])=>(
-                <div key={t as string} style={{display:'flex',gap:12,alignItems:'flex-start',marginBottom:12}}>
-                  <span style={{fontSize:18,flexShrink:0}}>{e}</span>
-                  <span style={{color:'#7060a0',fontSize:13}}>{t}</span>
+
+            {/* Features section */}
+            <div style={{background:'#10103a',border:'1px solid #22c55e20',borderRadius:16,padding:22}}>
+              <div style={{color:'#22c55e',fontWeight:700,fontSize:14,marginBottom:14}}>
+                ✨ Advanced v19 Features
+                <span style={{marginLeft:8,background:'#22c55e20',color:'#22c55e',padding:'2px 8px',borderRadius:6,fontSize:10}}>NEW</span>
+              </div>
+              
+              {[
+                ['🎯','MediaPipe Pose Detection','33-point skeletal tracking for anatomical accuracy'],
+                ['🔬','Multi-Method Segmentation','MediaPipe + GrabCut with automatic fallback'],
+                ['👁','Advanced Face Detection','LAB color space analysis for precise skin tone'],
+                ['🧠','Smart Clothing Detection','Automatic saree/jacket/fitted classification'],
+                ['📐','Landmark Measurements','Direct from body joints (most accurate)'],
+                ['✨','Intelligent Correction','Fabric thickness detection with adaptive compensation'],
+                ['👗','Size recommendation','Indian standard sizing (XS-XXXL)'],
+                ['👤','Full-body 3D avatar','Interactive rotation with legs'],
+                ['🪄','Virtual try-on','See outfits on YOUR measurements'],
+                ['🛍','Smart shopping','Pre-filtered by size on Amazon & Flipkart']
+              ].map(([e,title,desc])=>(
+                <div key={title as string} style={{display:'flex',gap:12,alignItems:'flex-start',marginBottom:12,padding:'8px 10px',background:'#0a1218',borderRadius:8,border:'1px solid #1a2838'}}>
+                  <span style={{fontSize:20,flexShrink:0}}>{e}</span>
+                  <div>
+                    <div style={{color:'#22c55e',fontSize:13,fontWeight:700,marginBottom:2}}>{title}</div>
+                    <div style={{color:'#6050a0',fontSize:11}}>{desc}</div>
+                  </div>
                 </div>
               ))}
-              <div style={{marginTop:14,padding:'12px 14px',background:'#0d0d22',border:'1px solid #1a1848',borderRadius:10,fontSize:12,color:'#4a4880'}}>
-                💡 <b style={{color:'#6a6898'}}>Best results:</b> Full body in frame, standing straight, plain background, good lighting
+              
+              <div style={{marginTop:14,padding:'12px 14px',background:'#0d0d22',border:'1px solid #22c55e20',borderRadius:10,fontSize:12,color:'#4a4880'}}>
+                💡 <b style={{color:'#22c55e'}}>Best results:</b> Full body, standing straight, plain background, good lighting
               </div>
             </div>
           </div>
@@ -399,31 +493,77 @@ export default function Home() {
             {activeTab==='avatar'&&(
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:18}}>
                 {avatarFrame('av1')}
+                
                 <div style={{display:'flex',flexDirection:'column',gap:14}}>
                   {visImg&&<img src={visImg} alt="detection" style={{width:'100%',borderRadius:12,border:'1px solid #2a2860',maxHeight:260,objectFit:'contain',background:'#000'}}/>}
-                  <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:14,padding:16}}>
-                    <div style={{color:'#e8c99a',fontWeight:800,marginBottom:6}}>{result.body_icon} {result.body_type} <span style={{marginLeft:8,background:'#2a1f60',padding:'2px 10px',borderRadius:6,fontSize:14}}>{result.size}</span></div>
+                  
+                  <div style={{background:'#10103a',border:'1px solid #22c55e30',borderRadius:14,padding:16}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                      <span style={{color:'#22c55e',fontWeight:800,fontSize:15}}>{result.body_icon} {result.body_type}</span>
+                      <span style={{background:'#1a2818',padding:'2px 10px',borderRadius:6,fontSize:14,color:'#22c55e',fontWeight:700}}>{result.size}</span>
+                    </div>
                     <div style={{color:'#6050a0',fontSize:12,marginBottom:12}}>{result.body_desc}</div>
+                    
+                    {/* Measurements grid */}
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
-                      {[['Shoulder',result.shoulder_cm],['Bust',result.bust_cm],['Waist',result.waist_cm],['Hip',result.hip_cm],['Height',result.height_cm],['Inseam',result.inseam_cm]].map(([k,v])=>(
+                      {[
+                        ['Shoulder',result.shoulder_cm],
+                        ['Bust',result.bust_cm],
+                        ['Waist',result.waist_cm],
+                        ['Hip',result.hip_cm],
+                        ['Height',result.height_cm],
+                        ['Inseam',result.inseam_cm]
+                      ].map(([k,v])=>(
                         <div key={k as string} style={{background:'#0d0d22',border:'1px solid #1a1848',borderRadius:8,padding:'8px 10px'}}>
                           <div style={{color:'#4a4870',fontSize:10,textTransform:'uppercase',letterSpacing:1}}>{k}</div>
                           <div style={{color:'#e8e0ff',fontWeight:700,fontSize:16}}>{v}<span style={{fontSize:10,color:'#4a4870',marginLeft:2}}>cm</span></div>
                         </div>
                       ))}
                     </div>
+                    
+                    {/* Analysis metadata */}
+                    <div style={{background:'#0d1218',border:'1px solid #1a2838',borderRadius:8,padding:'10px 12px',marginTop:10}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                        <span style={{color:'#6050a0',fontSize:11}}>Analysis Method</span>
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                          <span style={{color:'#22c55e',fontSize:11,fontWeight:700}}>{result.method || 'Advanced v19'}</span>
+                          {result.method && result.method.includes('MediaPipe') && (
+                            <span style={{background:'#1a2818',color:'#22c55e',padding:'2px 6px',borderRadius:4,fontSize:9}}>🎯 PRECISE</span>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:result.clothing_type?6:0}}>
+                        <span style={{color:'#6050a0',fontSize:11}}>Confidence Score</span>
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                          <div style={{width:60,height:4,background:'#1a1848',borderRadius:2,overflow:'hidden'}}>
+                            <div style={{width:`${result.confidence||85}%`,height:'100%',background:'#22c55e',transition:'width 0.3s'}}/>
+                          </div>
+                          <span style={{color:'#22c55e',fontSize:11,fontWeight:700}}>{result.confidence||85}%</span>
+                        </div>
+                      </div>
+                      {result.clothing_type && (
+                        <div style={{marginTop:6,padding:'6px 8px',background:'#0a1218',border:'1px solid #1a3848',borderRadius:6,fontSize:10,color:'#70a0c0'}}>
+                          👔 Clothing: <b>{result.clothing_type}</b> (auto-corrected)
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  
+                  {/* Colors & Tips */}
                   <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:14,padding:16}}>
-                    <div style={{color:'#e8c99a',fontWeight:700,fontSize:13,marginBottom:8}}>🎨 Best Colors — {result.skin_tone}</div>
+                    <div style={{color:'#22c55e',fontWeight:700,fontSize:13,marginBottom:8}}>🎨 Best Colors — {result.skin_tone}</div>
                     <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
                       {result.best_colors.slice(0,8).map((c:string)=><span key={c} style={{display:'inline-flex',alignItems:'center',gap:4,background:'#1e1848',color:'#b0a0e0',border:'1px solid #2e2868',borderRadius:8,padding:'3px 9px',fontSize:11}}><span style={{width:8,height:8,borderRadius:'50%',background:COLOR_HEX[c]||'#888',display:'inline-block',border:'1px solid rgba(255,255,255,0.15)'}}/>{c}</span>)}
                     </div>
-                    <div style={{color:'#e8c99a',fontWeight:700,fontSize:13,margin:'10px 0 6px'}}>💡 Style Tips</div>
+                    <div style={{color:'#22c55e',fontWeight:700,fontSize:13,margin:'10px 0 6px'}}>💡 Style Tips</div>
                     <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
                       {result.style_tips.map((t:string)=><span key={t} style={{background:'#1e2848',color:'#90b0f0',border:'1px solid #2e3868',borderRadius:8,padding:'3px 9px',fontSize:11}}>{t}</span>)}
                     </div>
                   </div>
-                  <button onClick={()=>setActiveTab('tryon')} style={{background:'linear-gradient(135deg,#6040c0,#9060e0)',color:'#fff',border:'none',padding:'13px',borderRadius:12,cursor:'pointer',fontWeight:800,fontSize:14}}>👗 Try On Outfits →</button>
+                  
+                  <button onClick={()=>setActiveTab('tryon')} style={{background:'linear-gradient(135deg,#22c55e,#16a34a)',color:'#fff',border:'none',padding:'13px',borderRadius:12,cursor:'pointer',fontWeight:800,fontSize:14,boxShadow:'0 4px 12px #22c55e40'}}>
+                    👗 Try On Outfits →
+                  </button>
                 </div>
               </div>
             )}
@@ -432,22 +572,24 @@ export default function Home() {
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:18}}>
                 <div style={{display:'flex',flexDirection:'column',gap:14}}>
                   <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:16,padding:18}}>
-                    <div style={{color:'#e8c99a',fontWeight:800,marginBottom:6}}>👗 Upload Outfit Image</div>
+                    <div style={{color:'#22c55e',fontWeight:800,marginBottom:6}}>👗 Upload Outfit Image</div>
                     <div style={{color:'#5050a0',fontSize:12,marginBottom:12}}>White-background product photos give best results</div>
                     <div onClick={()=>dressRef.current?.click()} style={{border:'2px dashed #2a2860',borderRadius:12,padding:18,cursor:'pointer',background:'#0d0d2a',textAlign:'center',minHeight:150,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:8}}>
                       {dressPreview?<img src={dressPreview} alt="dress" style={{maxHeight:150,borderRadius:8,objectFit:'contain'}}/>:<><div style={{fontSize:36}}>👗</div><div style={{color:'#4040a0',fontSize:13}}>Click to upload outfit</div><div style={{color:'#2a2a60',fontSize:11}}>Dress · Saree · Suit · Kurta</div></>}
                     </div>
                     <input ref={dressRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f)tryOn(f)}}/>
-                    {dressLoading&&<div style={{marginTop:10,color:'#8060e0',fontSize:13,textAlign:'center'}}>⏳ Extracting garment...</div>}
+                    {dressLoading&&<div style={{marginTop:10,color:'#22c55e',fontSize:13,textAlign:'center'}}>⏳ Extracting garment...</div>}
                     {dressB64&&<button onClick={clearDress} style={{marginTop:10,width:'100%',background:'#1a0a20',color:'#c060a0',border:'1px solid #401030',padding:'9px',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700}}>🗑️ Remove Outfit</button>}
                   </div>
+                  
                   <div style={{background:'#0d0d22',border:'1px solid #1e1848',borderRadius:14,padding:16}}>
-                    <div style={{color:'#e8c99a',fontWeight:700,fontSize:13,marginBottom:10}}>📐 Fit Analysis — Size {result.size}</div>
+                    <div style={{color:'#22c55e',fontWeight:700,fontSize:13,marginBottom:10}}>📐 Fit Analysis — Size {result.size}</div>
                     {fitBadges()}
                     <div style={{marginTop:8,padding:'8px 10px',background:'#07071a',borderRadius:8,fontSize:11,color:'#5050a0',textAlign:'center'}}>Ease = room between body and garment. 0–6cm = perfect fit.</div>
                   </div>
+                  
                   <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:12,padding:14,fontSize:12,color:'#5050a0'}}>
-                    <div style={{color:'#e8c99a',fontWeight:700,marginBottom:6}}>💡 Try-On Tips</div>
+                    <div style={{color:'#22c55e',fontWeight:700,marginBottom:6}}>💡 Try-On Tips</div>
                     <p style={{margin:'3px 0'}}>• White or plain backgrounds extract best</p>
                     <p style={{margin:'3px 0'}}>• Product flat-lay or mannequin shots work great</p>
                     <p style={{margin:'3px 0'}}>• Drag the avatar to see outfit from all angles</p>
@@ -465,15 +607,20 @@ export default function Home() {
   )
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  SHOP PANEL COMPONENT
+// ══════════════════════════════════════════════════════════════════
 function ShopPanel({bodyType,skinTone,size,bestColors,category}:any){
-  const all=PRODUCTS[category]||PRODUCTS.Women, best=new Set(bestColors)
+  const all=PRODUCTS[category]||PRODUCTS.Women
+  const best=new Set(bestColors)
   let matched=all.filter((p:any)=>p.body.includes(bodyType)&&p.sizes.includes(size)&&p.colors.some((c:string)=>best.has(c)))
   if(!matched.length)matched=all.filter((p:any)=>p.body.includes(bodyType))
   if(!matched.length)matched=all
+  
   return(
     <div>
-      <div style={{color:'#e8c99a',fontWeight:800,fontSize:15,marginBottom:14}}>🛍 {matched.length} Recommendations — {bodyType} · {skinTone} · Size {size}</div>
-      <div style={{background:'#10103a',border:'1px solid #1e1848',borderRadius:12,padding:14,marginBottom:14}}>
+      <div style={{color:'#22c55e',fontWeight:800,fontSize:15,marginBottom:14}}>🛍 {matched.length} Recommendations — {bodyType} · {skinTone} · Size {size}</div>
+      <div style={{background:'#10103a',border:'1px solid #22c55e20',borderRadius:12,padding:14,marginBottom:14}}>
         <div style={{color:'#8070b0',fontSize:12,marginBottom:8,fontWeight:700}}>✨ Your Best Colours</div>
         <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
           {bestColors.slice(0,8).map((c:string)=><span key={c} style={{display:'inline-flex',alignItems:'center',gap:3,background:'#1e1848',color:'#a090d0',border:'1px solid #2e2868',borderRadius:8,padding:'2px 8px',fontSize:11}}><span style={{width:8,height:8,borderRadius:'50%',background:COLOR_HEX[c]||'#888',display:'inline-block'}}/>{c}</span>)}
@@ -483,7 +630,7 @@ function ShopPanel({bodyType,skinTone,size,bestColors,category}:any){
         {matched.map((p:any)=>{
           const mc=p.colors.filter((c:string)=>best.has(c)).length?p.colors.filter((c:string)=>best.has(c)):p.colors.slice(0,2)
           return(<div key={p.name} style={{background:'#10103a',border:'1px solid #1e1848',borderRadius:14,padding:16}}>
-            <div style={{color:'#e8c99a',fontWeight:700,fontSize:14,marginBottom:8}}>{p.name}</div>
+            <div style={{color:'#22c55e',fontWeight:700,fontSize:14,marginBottom:8}}>{p.name}</div>
             <div style={{display:'flex',gap:4,marginBottom:8,flexWrap:'wrap'}}>
               {mc.map((c:string)=><span key={c} style={{display:'inline-flex',alignItems:'center',gap:3,background:'#1e1848',color:'#a090d0',border:'1px solid #2e2868',borderRadius:8,padding:'2px 7px',fontSize:11}}><span style={{width:7,height:7,borderRadius:'50%',background:COLOR_HEX[c]||'#888',display:'inline-block'}}/>{c}</span>)}
             </div>
