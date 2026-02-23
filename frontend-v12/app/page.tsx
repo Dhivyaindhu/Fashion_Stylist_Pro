@@ -63,17 +63,62 @@ function buildAvatar(result: any, dressB64: string|null): string {
   const skin_sh=lighten(skin,0.68), skin_hi=lighten(skin,1.32)
   const skin_mid=lighten(skin,0.84)
 
-  const SKINS:any = {Fair:{ds:'f8d5c2',h:'b8860b'},Light:{ds:'e8b89a',h:'4a3728'},Medium:{ds:'c68642',h:'2d1b0e'},Tan:{ds:'a0522d',h:'1a0f0a'},Deep:{ds:'4a2912',h:'0a0505'}}
-  const pal = SKINS[skinTone]||SKINS.Medium
-  const dbUrl = `https://api.dicebear.com/9.x/lorelei/svg?seed=${skinTone}${bodyType}&skinColor=${pal.ds}&hairColor=${pal.h}&backgroundColor=transparent&scale=120`
+  const isMen = result.category === 'Men'
+  // ════════════════════════════════════════════════════════════
+  // INLINE SVG FACE — soft kawaii-anime style, NO DiceBear API
+  // No random expressions, no internet dependency, always pretty
+  // ════════════════════════════════════════════════════════════
+  const HC:any={Fair:'#704820',Light:'#3E2010',Medium:'#220C04',Tan:'#140602',Deep:'#060101'}
+  const HS:any={Fair:'#B88030',Light:'#663820',Medium:'#341208',Tan:'#1C0804',Deep:'#0C0402'}
+  const hc=HC[skinTone]||HC.Medium, hs2=HS[skinTone]||HS.Medium
+  const lp=skinTone==='Fair'?'#E07882':skinTone==='Light'?'#C86060':skinTone==='Deep'?'#904848':'#B85050'
+  const ec=skinTone==='Fair'?'#3A2010':skinTone==='Deep'?'#160600':'#220C04'
+
+  function drawFace(cx:number,cy:number,r:number,xsh:number):string {
+    const x=cx+xsh, s=r*0.85
+    // ── hair (women: long flowing; men: short top) ──
+    const hTW=`<ellipse cx="${x}" cy="${cy-s*.13}" rx="${s*1.06}" ry="${s*.72}" fill="${hc}"/>`
+    const hLW=`<path d="M ${x-s*.92},${cy-.06*s} C ${x-s*1.22},${cy+s*.44} ${x-s*1.14},${cy+s*.9} ${x-s*.82},${cy+s*1.04} C ${x-s*.70},${cy+s*.74} ${x-s*.72},${cy+s*.34} ${x-s*.88},${cy+s*.04}Z" fill="${hc}"/>`
+    const hRW=`<path d="M ${x+s*.92},${cy-.06*s} C ${x+s*1.22},${cy+s*.44} ${x+s*1.14},${cy+s*.9} ${x+s*.82},${cy+s*1.04} C ${x+s*.70},${cy+s*.74} ${x+s*.72},${cy+s*.34} ${x+s*.88},${cy+s*.04}Z" fill="${hc}"/>`
+    const hHiW=`<path d="M ${x-s*.5},${cy-s*.82} C ${x-s*.16},${cy-s*.98} ${x+s*.14},${cy-s*.92} ${x-s*.06},${cy-s*.70}" fill="none" stroke="${hs2}" stroke-width="${s*.054}" stroke-linecap="round"/>`
+    const hTM=`<ellipse cx="${x}" cy="${cy-s*.60}" rx="${s*1.01}" ry="${s*.52}" fill="${hc}"/>`
+    const hair = isMen ? (hTM) : (hLW+hRW+hTW+hHiW)
+    // ── face oval ──
+    const oval=`<ellipse cx="${x}" cy="${cy}" rx="${s}" ry="${s*1.09}" fill="${skin}"/>`
+    // ── eyes (large, anime-style) ──
+    const er=s*.176, eLx=x-s*.30, eRx=x+s*.30, ey=cy+s*.04
+    const ew=`<ellipse cx="${eLx}" cy="${ey}" rx="${er}" ry="${er*1.10}" fill="white"/><ellipse cx="${eRx}" cy="${ey}" rx="${er}" ry="${er*1.10}" fill="white"/>`
+    const ei=`<ellipse cx="${eLx}" cy="${ey+er*.07}" rx="${er*.67}" ry="${er*.80}" fill="${ec}"/><ellipse cx="${eRx}" cy="${ey+er*.07}" rx="${er*.67}" ry="${er*.80}" fill="${ec}"/>`
+    const ep=`<ellipse cx="${eLx}" cy="${ey+er*.09}" rx="${er*.35}" ry="${er*.42}" fill="#060106"/><ellipse cx="${eRx}" cy="${ey+er*.09}" rx="${er*.35}" ry="${er*.42}" fill="#060106"/>`
+    const esh=`<ellipse cx="${eLx-er*.19}" cy="${ey-er*.19}" rx="${er*.14}" ry="${er*.14}" fill="rgba(255,255,255,.88)"/><ellipse cx="${eRx-er*.19}" cy="${ey-er*.19}" rx="${er*.14}" ry="${er*.14}" fill="rgba(255,255,255,.88)"/>`
+    // lashes women only
+    const lsh=isMen?'':`<path d="M ${eLx-er},${ey-er*.87} Q ${eLx},${ey-er*1.30} ${eLx+er},${ey-er*.87}" fill="${hc}" stroke="${hc}" stroke-width="${er*.15}"/><path d="M ${eRx-er},${ey-er*.87} Q ${eRx},${ey-er*1.30} ${eRx+er},${ey-er*.87}" fill="${hc}" stroke="${hc}" stroke-width="${er*.15}"/>`
+    // ── brows (arched, neat) ──
+    const bw2=isMen?er*.30:er*.22
+    const bl=`<path d="M ${eLx-er*1.09},${ey-er*1.54} Q ${eLx},${ey-er*1.87} ${eLx+er*.88},${ey-er*1.46}" fill="none" stroke="${hc}" stroke-width="${bw2}" stroke-linecap="round"/>`
+    const br=`<path d="M ${eRx-er*.88},${ey-er*1.46} Q ${eRx},${ey-er*1.87} ${eRx+er*1.09},${ey-er*1.54}" fill="none" stroke="${hc}" stroke-width="${bw2}" stroke-linecap="round"/>`
+    // ── nose (subtle) ──
+    const ny=cy+s*.28
+    const ns=`<path d="M ${x-s*.065},${ny-s*.04} Q ${x},${ny+s*.05} ${x+s*.065},${ny-s*.04}" fill="none" stroke="${lighten(skin,.70)}" stroke-width="${s*.042}" stroke-linecap="round"/>`
+    // ── mouth: gentle upward smile ──
+    const my=cy+s*.46
+    const mt=`<path d="M ${x-s*.20},${my} Q ${x},${my+s*.14} ${x+s*.20},${my}" fill="${lp}" stroke="${lp}" stroke-width="${s*.036}" stroke-linecap="round"/>
+    <path d="M ${x-s*.20},${my} Q ${x},${my-s*.03} ${x+s*.20},${my}" fill="none" stroke="${lighten(lp,1.28)}" stroke-width="${s*.020}"/>`
+    // ── blush dots (women) ──
+    const bl2=isMen?'':`<ellipse cx="${x-s*.46}" cy="${cy+s*.27}" rx="${s*.18}" ry="${s*.09}" fill="${lp}" opacity=".17"/><ellipse cx="${x+s*.46}" cy="${cy+s*.27}" rx="${s*.18}" ry="${s*.09}" fill="${lp}" opacity=".17"/>`
+    return hair+oval+bl2+ew+ei+ep+esh+lsh+bl+br+ns+mt
+  }
 
   function bodyP(sw:number,bw:number,ww:number,hw_:number,tw:number,cw:number,sh:number) {
     const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
     return `M ${L(sw)},${y_sh} C ${L(sw+8)},${y_sh+22} ${L(bw+5)},${y_bu-16} ${L(bw)},${y_bu} C ${L(bw-6)},${y_bu+26} ${L(ww+4)},${y_wa-14} ${L(ww)},${y_wa} C ${L(ww+5)},${y_wa+20} ${L(hw_-4)},${y_hi-12} ${L(hw_)},${y_hi} C ${L(hw_-2)},${y_hi+28} ${L(tw+4)},${y_th-10} ${L(tw)},${y_th} C ${L(tw-2)},${y_th+20} ${L(cw+2)},${y_kn-8} ${L(cw)},${y_kn} C ${L(cw)},${y_kn+24} ${L(cw-2)},${y_ca-6} ${L(cw-2)},${y_ca} C ${L(cw-2)},${y_ca+16} ${L(cw)},${y_ft-4} ${L(cw+2)},${y_ft} L ${R(cw+2)},${y_ft} C ${R(cw)},${y_ft-4} ${R(cw-2)},${y_ca+16} ${R(cw-2)},${y_ca} C ${R(cw-2)},${y_ca-6} ${R(cw)},${y_kn+24} ${R(cw)},${y_kn} C ${R(cw+2)},${y_kn-8} ${R(tw-2)},${y_th+20} ${R(tw)},${y_th} C ${R(tw+4)},${y_th-10} ${R(hw_-2)},${y_hi+28} ${R(hw_)},${y_hi} C ${R(hw_-4)},${y_hi-12} ${R(ww+5)},${y_wa+20} ${R(ww)},${y_wa} C ${R(ww+4)},${y_wa-14} ${R(bw-6)},${y_bu+26} ${R(bw)},${y_bu} C ${R(bw+5)},${y_bu-16} ${R(sw+8)},${y_sh+22} ${R(sw)},${y_sh} Z`
   }
   function dressP(sw:number,bw:number,ww:number,hw_:number,sh:number) {
+    // Add generous padding (+18 shoulder, +12 bust) so shirts/jackets with
+    // wide shoulders never show body skin through the sides of the garment.
+    const sw2=sw+18, bw2=bw+12, ww2=ww+4, hw2=hw_+6
     const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
-    return `M ${L(sw)},${y_sh} C ${L(sw+8)},${y_sh+22} ${L(bw+5)},${y_bu-16} ${L(bw)},${y_bu} C ${L(bw-6)},${y_bu+26} ${L(ww+4)},${y_wa-14} ${L(ww)},${y_wa} C ${L(ww+5)},${y_wa+20} ${L(hw_-4)},${y_hi-12} ${L(hw_)},${y_hi} C ${L(hw_+2)},${y_hi+30} ${L(hw_+4)},${y_ft-10} ${L(hw_-2)},${y_ft} L ${R(hw_-2)},${y_ft} C ${R(hw_+4)},${y_ft-10} ${R(hw_+2)},${y_hi+30} ${R(hw_)},${y_hi} C ${R(hw_-4)},${y_hi-12} ${R(ww+5)},${y_wa+20} ${R(ww)},${y_wa} C ${R(ww+4)},${y_wa-14} ${R(bw-6)},${y_bu+26} ${R(bw)},${y_bu} C ${R(bw+5)},${y_bu-16} ${R(sw+8)},${y_sh+22} ${R(sw)},${y_sh} Z`
+    return `M ${L(sw2)},${y_sh} C ${L(sw2+8)},${y_sh+22} ${L(bw2+5)},${y_bu-16} ${L(bw2)},${y_bu} C ${L(bw2-6)},${y_bu+26} ${L(ww2+4)},${y_wa-14} ${L(ww2)},${y_wa} C ${L(ww2+5)},${y_wa+20} ${L(hw2-4)},${y_hi-12} ${L(hw2)},${y_hi} C ${L(hw2+2)},${y_hi+30} ${L(hw2+4)},${y_ft-10} ${L(hw2-2)},${y_ft} L ${R(hw2-2)},${y_ft} C ${R(hw2+4)},${y_ft-10} ${R(hw2+2)},${y_hi+30} ${R(hw2)},${y_hi} C ${R(hw2-4)},${y_hi-12} ${R(ww2+5)},${y_wa+20} ${R(ww2)},${y_wa} C ${R(ww2+4)},${y_wa-14} ${R(bw2-6)},${y_bu+26} ${R(bw2)},${y_bu} C ${R(bw2+5)},${y_bu-16} ${R(sw2+8)},${y_sh+22} ${R(sw2)},${y_sh} Z`
   }
   function armP(s:number,sw:number,sh:number) {
     const ax=CX+s*sw+sh, ay=y_sh+10, ex=CX+s*(sw+28)+sh, ey=y_sh+102, hx=CX+s*(sw+10)+sh, hy=y_sh+198
@@ -88,7 +133,7 @@ function buildAvatar(result: any, dressB64: string|null): string {
   const initLa=armP(-1,sh_w,0), initRa=armP(1,sh_w,0)
   const initNk=neckP(nw,0)
 
-  const dressImgW=(hi_w+10)*2, dressImgH=y_ft-y_sh+24
+  const dressImgW=(hi_w+30)*2, dressImgH=y_ft-y_sh+24
 
   const dressDefs = dressB64
     ? `<clipPath id="dCl"><path id="dClP" d="${initDr}"/></clipPath>`
@@ -127,8 +172,7 @@ ${dressDefs}
 ${dressLayer}
 ${sleeveLayer}
 <path id="neck" d="${initNk}" fill="${skin_mid}" filter="url(#ds)"/>
-<circle id="head" cx="${CX}" cy="${y_hcy}" r="68" fill="${skin}" filter="url(#ds)"/>
-<image id="face" href="${dbUrl}" x="${CX-82}" y="${y_hcy-88}" width="164" height="164" clip-path="circle(68px at 82px 84px)" preserveAspectRatio="xMidYMid meet"/>
+<g id="faceG" filter="url(#ds)">${drawFace(CX,y_hcy,68,0)}</g>
 <ellipse id="lft" cx="${CX-ca_w+4}" cy="${y_ft+6}" rx="${ca_w+5}" ry="7" fill="${lighten(skin,0.55)}"/>
 <ellipse id="rft" cx="${CX+ca_w-4}" cy="${y_ft+6}" rx="${ca_w+5}" ry="7" fill="${lighten(skin,0.55)}"/>
 <text id="vl" x="${CX}" y="${H-5}" text-anchor="middle" font-size="10" font-family="system-ui" fill="rgba(255,255,255,0.18)">FRONT · 0° · ${bodyType}</text>
@@ -162,8 +206,11 @@ function bodyPath(sw,bw,ww,hw,tw,cw,sh){
   return 'M '+L(sw)+','+YSH+' C '+L(sw+8)+','+(YSH+22)+' '+L(bw+5)+','+(YBU-16)+' '+L(bw)+','+YBU+' C '+L(bw-6)+','+(YBU+26)+' '+L(ww+4)+','+(YWA-14)+' '+L(ww)+','+YWA+' C '+L(ww+5)+','+(YWA+20)+' '+L(hw-4)+','+(YHI-12)+' '+L(hw)+','+YHI+' C '+L(hw-2)+','+(YHI+28)+' '+L(tw+4)+','+(YTH-10)+' '+L(tw)+','+YTH+' C '+L(tw-2)+','+(YTH+20)+' '+L(cw+2)+','+(YKN-8)+' '+L(cw)+','+YKN+' C '+L(cw)+','+(YKN+24)+' '+L(cw-2)+','+(YCA-6)+' '+L(cw-2)+','+YCA+' C '+L(cw-2)+','+(YCA+16)+' '+L(cw)+','+(YFT-4)+' '+L(cw+2)+','+YFT+' L '+R(cw+2)+','+YFT+' C '+R(cw)+','+(YFT-4)+' '+R(cw-2)+','+(YCA+16)+' '+R(cw-2)+','+YCA+' C '+R(cw-2)+','+(YCA-6)+' '+R(cw)+','+(YKN+24)+' '+R(cw)+','+YKN+' C '+R(cw+2)+','+(YKN-8)+' '+R(tw-2)+','+(YTH+20)+' '+R(tw)+','+YTH+' C '+R(tw+4)+','+(YTH-10)+' '+R(hw-2)+','+(YHI+28)+' '+R(hw)+','+YHI+' C '+R(hw-4)+','+(YHI-12)+' '+R(ww+5)+','+(YWA+20)+' '+R(ww)+','+YWA+' C '+R(ww+4)+','+(YWA-14)+' '+R(bw-6)+','+(YBU+26)+' '+R(bw)+','+YBU+' C '+R(bw+5)+','+(YBU-16)+' '+R(sw+8)+','+(YSH+22)+' '+R(sw)+','+YSH+' Z';
 }
 function dressPath(sw,bw,ww,hw,sh){
+  // +18 shoulder, +12 bust — same padding as TypeScript dressP
+  // ensures shirts/jackets never show body skin through the sides
+  var sw2=sw+18,bw2=bw+12,ww2=ww+4,hw2=hw+6;
   var L=function(v){return CX-v+sh;},R=function(v){return CX+v+sh;};
-  return 'M '+L(sw)+','+YSH+' C '+L(sw+8)+','+(YSH+22)+' '+L(bw+5)+','+(YBU-16)+' '+L(bw)+','+YBU+' C '+L(bw-6)+','+(YBU+26)+' '+L(ww+4)+','+(YWA-14)+' '+L(ww)+','+YWA+' C '+L(ww+5)+','+(YWA+20)+' '+L(hw-4)+','+(YHI-12)+' '+L(hw)+','+YHI+' C '+L(hw+2)+','+(YHI+30)+' '+L(hw+4)+','+(YFT-10)+' '+L(hw-2)+','+YFT+' L '+R(hw-2)+','+YFT+' C '+R(hw+4)+','+(YFT-10)+' '+R(hw+2)+','+(YHI+30)+' '+R(hw)+','+YHI+' C '+R(hw-4)+','+(YHI-12)+' '+R(ww+5)+','+(YWA+20)+' '+R(ww)+','+YWA+' C '+R(ww+4)+','+(YWA-14)+' '+R(bw-6)+','+(YBU+26)+' '+R(bw)+','+YBU+' C '+R(bw+5)+','+(YBU-16)+' '+R(sw+8)+','+(YSH+22)+' '+R(sw)+','+YSH+' Z';
+  return 'M '+L(sw2)+','+YSH+' C '+L(sw2+8)+','+(YSH+22)+' '+L(bw2+5)+','+(YBU-16)+' '+L(bw2)+','+YBU+' C '+L(bw2-6)+','+(YBU+26)+' '+L(ww2+4)+','+(YWA-14)+' '+L(ww2)+','+YWA+' C '+L(ww2+5)+','+(YWA+20)+' '+L(hw2-4)+','+(YHI-12)+' '+L(hw2)+','+YHI+' C '+L(hw2+2)+','+(YHI+30)+' '+L(hw2+4)+','+(YFT-10)+' '+L(hw2-2)+','+YFT+' L '+R(hw2-2)+','+YFT+' C '+R(hw2+4)+','+(YFT-10)+' '+R(hw2+2)+','+(YHI+30)+' '+R(hw2)+','+YHI+' C '+R(hw2-4)+','+(YHI-12)+' '+R(ww2+5)+','+(YWA+20)+' '+R(ww2)+','+YWA+' C '+R(ww2+4)+','+(YWA-14)+' '+R(bw2-6)+','+(YBU+26)+' '+R(bw2)+','+YBU+' C '+R(bw2+5)+','+(YBU-16)+' '+R(sw2+8)+','+(YSH+22)+' '+R(sw2)+','+YSH+' Z';
 }
 function armPath(s,sw,sh){
   var ax=CX+s*sw+sh,ay=YSH+10,ex=CX+s*(sw+28)+sh,ey=YSH+102,hx=CX+s*(sw+10)+sh,hy=YSH+198;
@@ -181,9 +228,8 @@ function upd(a){
   var nn=Math.max(5,Math.round(NW*wS)),aw=Math.round(ARW*wS),ah2=Math.round(aw/2);
   S('body','d',bodyPath(sw,bw,ww,hw,tw,cw,sh));
   S('neck','d',neckPath(nn,sh));
-  S('head','cx',CX+sh);
-  var fi=document.getElementById('face');if(fi){fi.setAttribute('x',CX-82+sh);}
-  O('face',Math.max(0,cosA).toFixed(2));
+  var fg=document.getElementById('faceG');
+  if(fg){fg.setAttribute('transform','translate('+sh+',0)');fg.style.opacity=Math.max(0,cosA).toFixed(2);}
   S('lft','cx',CX-cw+4+sh);S('rft','cx',CX+cw-4+sh);
   if(!hasDress){
     var sL=!(a>28&&a<152),sR=!(a>208&&a<332);
