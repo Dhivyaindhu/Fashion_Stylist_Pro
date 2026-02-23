@@ -39,10 +39,12 @@ function lighten(hex:string, f:number) {
   return '#'+[0,2,4].map(i=>Math.max(0,Math.min(255,Math.round(parseInt(h.slice(i,i+2),16)*f))).toString(16).padStart(2,'0')).join('')
 }
 
+// ✅ FIX 1: GENDER-CORRECT AVATAR FACES
 function buildAvatar(result: any, dressB64: string|null): string {
   const skin     = result.skin_hex || '#c8956c'
   const skinTone = result.skin_tone || 'Medium'
   const bodyType = result.body_type || 'Rectangle'
+  const category = result.category || 'Women'  // ✅ GET CATEGORY FROM API
   const CX=210, W=420, H=680, SC=4.8
 
   const hw=(c:number)=>Math.max(10,Math.round((c/(2*Math.PI))*SC))
@@ -65,28 +67,34 @@ function buildAvatar(result: any, dressB64: string|null): string {
 
   const SKINS:any = {Fair:{ds:'f8d5c2',h:'b8860b'},Light:{ds:'e8b89a',h:'4a3728'},Medium:{ds:'c68642',h:'2d1b0e'},Tan:{ds:'a0522d',h:'1a0f0a'},Deep:{ds:'4a2912',h:'0a0505'}}
   const pal = SKINS[skinTone]||SKINS.Medium
-  // personas style: warm natural faces, no glasses awkwardness
-  const personasSkin: Record<string,string> = {
-    Fair:'ecru', Light:'apricot', Medium:'bronze', Tan:'copper', Deep:'sepia'
+  
+  // ✅ GENDER-SPECIFIC AVATAR STYLES
+  let dbUrl
+  if (category === 'Men') {
+    // Masculine face style
+    dbUrl = `https://api.dicebear.com/9.x/micah/svg?seed=${skinTone}${bodyType}&skinColor=${pal.ds}&hairColor=${pal.h}&backgroundColor=transparent&scale=120`
+  } else if (category === 'Kids') {
+    // Child-friendly style
+    dbUrl = `https://api.dicebear.com/9.x/big-smile/svg?seed=${skinTone}${bodyType}&backgroundColor=transparent&scale=120`
+  } else {
+    // Feminine face style (default)
+    dbUrl = `https://api.dicebear.com/9.x/lorelei/svg?seed=${skinTone}${bodyType}&skinColor=${pal.ds}&hairColor=${pal.h}&backgroundColor=transparent&scale=120`
   }
-  const personasHair: Record<string,string> = {
-    Fair:'2c1b18', Light:'3d2314', Medium:'1c0d00', Tan:'0d0500', Deep:'080200'
-  }
-  const skinParam = personasSkin[skinTone] || 'bronze'
-  const hairParam = personasHair[skinTone] || '1c0d00'
-  const dbUrl = `https://api.dicebear.com/9.x/personas/svg?seed=${skinTone}${bodyType}&skinColor=${skinParam}&hairColor=${hairParam}&backgroundColor=transparent&scale=110`
 
   function bodyP(sw:number,bw:number,ww:number,hw_:number,tw:number,cw:number,sh:number) {
     const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
     return `M ${L(sw)},${y_sh} C ${L(sw+8)},${y_sh+22} ${L(bw+5)},${y_bu-16} ${L(bw)},${y_bu} C ${L(bw-6)},${y_bu+26} ${L(ww+4)},${y_wa-14} ${L(ww)},${y_wa} C ${L(ww+5)},${y_wa+20} ${L(hw_-4)},${y_hi-12} ${L(hw_)},${y_hi} C ${L(hw_-2)},${y_hi+28} ${L(tw+4)},${y_th-10} ${L(tw)},${y_th} C ${L(tw-2)},${y_th+20} ${L(cw+2)},${y_kn-8} ${L(cw)},${y_kn} C ${L(cw)},${y_kn+24} ${L(cw-2)},${y_ca-6} ${L(cw-2)},${y_ca} C ${L(cw-2)},${y_ca+16} ${L(cw)},${y_ft-4} ${L(cw+2)},${y_ft} L ${R(cw+2)},${y_ft} C ${R(cw)},${y_ft-4} ${R(cw-2)},${y_ca+16} ${R(cw-2)},${y_ca} C ${R(cw-2)},${y_ca-6} ${R(cw)},${y_kn+24} ${R(cw)},${y_kn} C ${R(cw+2)},${y_kn-8} ${R(tw-2)},${y_th+20} ${R(tw)},${y_th} C ${R(tw+4)},${y_th-10} ${R(hw_-2)},${y_hi+28} ${R(hw_)},${y_hi} C ${R(hw_-4)},${y_hi-12} ${R(ww+5)},${y_wa+20} ${R(ww)},${y_wa} C ${R(ww+4)},${y_wa-14} ${R(bw-6)},${y_bu+26} ${R(bw)},${y_bu} C ${R(bw+5)},${y_bu-16} ${R(sw+8)},${y_sh+22} ${R(sw)},${y_sh} Z`
   }
-  function dressP(sw:number,bw:number,ww:number,hw_:number,sh:number) {
-    // Add generous padding (+18 shoulder, +12 bust) so shirts/jackets with
-    // wide shoulders never show body skin through the sides of the garment.
-    const sw2=sw+18, bw2=bw+12, ww2=ww+4, hw2=hw_+6
+  
+  // ✅ FIX 2A: DRESS COVERS FULL BODY - Updated dressP function
+  function dressP(sw:number,bw:number,ww:number,hw_:number,tw:number,cw:number,sh:number) {
     const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
-    return `M ${L(sw2)},${y_sh} C ${L(sw2+8)},${y_sh+22} ${L(bw2+5)},${y_bu-16} ${L(bw2)},${y_bu} C ${L(bw2-6)},${y_bu+26} ${L(ww2+4)},${y_wa-14} ${L(ww2)},${y_wa} C ${L(ww2+5)},${y_wa+20} ${L(hw2-4)},${y_hi-12} ${L(hw2)},${y_hi} C ${L(hw2+2)},${y_hi+30} ${L(hw2+4)},${y_ft-10} ${L(hw2-2)},${y_ft} L ${R(hw2-2)},${y_ft} C ${R(hw2+4)},${y_ft-10} ${R(hw2+2)},${y_hi+30} ${R(hw2)},${y_hi} C ${R(hw2-4)},${y_hi-12} ${R(ww2+5)},${y_wa+20} ${R(ww2)},${y_wa} C ${R(ww2+4)},${y_wa-14} ${R(bw2-6)},${y_bu+26} ${R(bw2)},${y_bu} C ${R(bw2+5)},${y_bu-16} ${R(sw2+8)},${y_sh+22} ${R(sw2)},${y_sh} Z`
+    const dressFlare = Math.max(hw_ * 0.18, 10)
+    const ft_w = hw_ + dressFlare
+    
+    return `M ${L(sw)},${y_sh} C ${L(sw+8)},${y_sh+22} ${L(bw+5)},${y_bu-16} ${L(bw)},${y_bu} C ${L(bw-6)},${y_bu+26} ${L(ww+4)},${y_wa-14} ${L(ww)},${y_wa} C ${L(ww+5)},${y_wa+20} ${L(hw_-4)},${y_hi-12} ${L(hw_)},${y_hi} C ${L(hw_+2)},${y_hi+24} ${L(tw+6)},${y_th-8} ${L(tw+8)},${y_th} C ${L(tw+8)},${y_th+18} ${L(ft_w-4)},${y_kn-6} ${L(ft_w-2)},${y_kn} C ${L(ft_w-2)},${y_kn+20} ${L(ft_w)},${y_ca-4} ${L(ft_w)},${y_ca} C ${L(ft_w)},${y_ca+14} ${L(ft_w+2)},${y_ft-8} ${L(ft_w+4)},${y_ft} L ${R(ft_w+4)},${y_ft} C ${R(ft_w+2)},${y_ft-8} ${R(ft_w)},${y_ca+14} ${R(ft_w)},${y_ca} C ${R(ft_w)},${y_ca-4} ${R(ft_w-2)},${y_kn+20} ${R(ft_w-2)},${y_kn} C ${R(ft_w-4)},${y_kn-6} ${R(tw+8)},${y_th+18} ${R(tw+8)},${y_th} C ${R(tw+6)},${y_th-8} ${R(hw_+2)},${y_hi+24} ${R(hw_)},${y_hi} C ${R(hw_-4)},${y_hi-12} ${R(ww+5)},${y_wa+20} ${R(ww)},${y_wa} C ${R(ww+4)},${y_wa-14} ${R(bw-6)},${y_bu+26} ${R(bw)},${y_bu} C ${R(bw+5)},${y_bu-16} ${R(sw+8)},${y_sh+22} ${R(sw)},${y_sh} Z`
   }
+  
   function armP(s:number,sw:number,sh:number) {
     const ax=CX+s*sw+sh, ay=y_sh+10, ex=CX+s*(sw+28)+sh, ey=y_sh+102, hx=CX+s*(sw+10)+sh, hy=y_sh+198
     return `M ${ax},${ay} C ${ax+s*16},${ay+26} ${ex-s*5},${ey-24} ${ex},${ey} C ${ex+s*4},${ey+32} ${hx+s*9},${hy-32} ${hx},${hy}`
@@ -96,291 +104,306 @@ function buildAvatar(result: any, dressB64: string|null): string {
   }
 
   const initBd=bodyP(sh_w,bu_w,wa_w,hi_w,th_w,ca_w,0)
-  const initDr=dressP(sh_w,bu_w,wa_w,hi_w,0)
+  // ✅ FIX 2B: Update initDr call with th_w and ca_w parameters
+  const initDr=dressP(sh_w,bu_w,wa_w,hi_w,th_w,ca_w,0)
   const initLa=armP(-1,sh_w,0), initRa=armP(1,sh_w,0)
   const initNk=neckP(nw,0)
 
-  const dressImgW=(hi_w+10)*2, dressImgH=y_ft-y_sh+24
+  // ✅ FIX 2C & 2D: Improved dress dimensions and rendering
+  const dressImgW=(hi_w+20)*2, dressImgH=y_ft-y_sh+60  // ✅ +60 instead of +24
 
   const dressDefs = dressB64
-    ? `<clipPath id="dCl"><path id="dClP" d="${initDr}"/></clipPath>`
+    ? `<defs>
+         <clipPath id="dCl"><path id="dClP" d="${initDr}"/></clipPath>
+         <filter id="dressShade">
+           <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+           <feOffset dx="0" dy="2" result="offsetblur"/>
+           <feComponentTransfer><feFuncA type="linear" slope="0.3"/></feComponentTransfer>
+           <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+         </filter>
+       </defs>`
     : ''
   const dressLayer = dressB64
-    ? `<image id="dImg" href="data:image/png;base64,${dressB64}" x="${CX-dressImgW/2}" y="${y_sh}" width="${dressImgW}" height="${dressImgH}" clip-path="url(#dCl)" preserveAspectRatio="xMidYMid slice" opacity="0.96"/>
-       <path d="${initDr}" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="1.5"/>`
-    : ''
-  const sleeveLayer = dressB64
-    ? `<path id="la2" d="${initLa}" fill="none" stroke="${skin_mid}" stroke-width="${Math.max(10,arm_w-4)}" stroke-linecap="round"/>
-       <ellipse id="lh2" cx="${CX-sh_w-10}" cy="${y_sh+205}" rx="${ah}" ry="${ah+2}" fill="${skin}"/>
-       <path id="ra2" d="${initRa}" fill="none" stroke="${skin_mid}" stroke-width="${Math.max(10,arm_w-4)}" stroke-linecap="round"/>
-       <ellipse id="rh2" cx="${CX+sh_w+10}" cy="${y_sh+205}" rx="${ah}" ry="${ah+2}" fill="${skin}"/>`
+    ? `<g filter="url(#dressShade)">
+         <image id="dImg" href="data:image/png;base64,${dressB64}" 
+                x="${CX-dressImgW/2}" y="${y_sh-15}"  
+                width="${dressImgW}" height="${dressImgH+30}" 
+                clip-path="url(#dCl)" 
+                preserveAspectRatio="xMidYMid slice" 
+                opacity="0.97"/>
+         <path d="${initDr}" fill="none" stroke="rgba(0,0,0,0.12)" stroke-width="1.5"/>
+       </g>`
     : ''
 
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#07071a;display:flex;justify-content:center;padding:8px;font-family:system-ui}svg{cursor:grab;touch-action:none}</style>
-</head><body>
-<div style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%">
-<svg id="av" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto">
-<defs>
-<radialGradient id="bgG" cx="50%" cy="52%" r="62%"><stop offset="0%" stop-color="#16123a"/><stop offset="100%" stop-color="#06061a"/></radialGradient>
-<linearGradient id="bG" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="${skin_sh}"/><stop offset="32%" stop-color="${skin}"/><stop offset="52%" stop-color="${skin_hi}" stop-opacity="0.82"/><stop offset="100%" stop-color="${skin_sh}"/></linearGradient>
-<filter id="bl"><feGaussianBlur stdDeviation="3.5"/></filter>
-<filter id="ds"><feDropShadow dx="2" dy="5" stdDeviation="5" flood-opacity="0.26"/></filter>
-${dressDefs}
-</defs>
-<rect width="${W}" height="${H}" fill="url(#bgG)"/>
-<ellipse cx="${CX}" cy="${y_ft+18}" rx="${hi_w+14}" ry="12" fill="rgba(0,0,0,0.18)" filter="url(#bl)"/>
-<path id="la" d="${initLa}" fill="none" stroke="${skin_mid}" stroke-width="${arm_w}" stroke-linecap="round" opacity="${dressB64?'0':'1'}"/>
-<ellipse id="lh" cx="${CX-sh_w-10}" cy="${y_sh+205}" rx="${ah}" ry="${ah+2}" fill="${skin}" opacity="${dressB64?'0':'1'}"/>
-<path id="ra" d="${initRa}" fill="none" stroke="${skin_mid}" stroke-width="${arm_w}" stroke-linecap="round" opacity="${dressB64?'0':'1'}"/>
-<ellipse id="rh" cx="${CX+sh_w+10}" cy="${y_sh+205}" rx="${ah}" ry="${ah+2}" fill="${skin}" opacity="${dressB64?'0':'1'}"/>
-<path id="body" d="${initBd}" fill="url(#bG)" filter="url(#ds)"/>
-<path d="M ${CX},${y_sh+6} C ${CX},${y_bu-6} ${CX},${y_bu+16} ${CX},${y_wa}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="10" stroke-linecap="round"/>
-${dressLayer}
-${sleeveLayer}
-<path id="neck" d="${initNk}" fill="${skin_mid}" filter="url(#ds)"/>
-<circle id="head" cx="${CX}" cy="${y_hcy}" r="68" fill="${skin}" filter="url(#ds)"/>
-<image id="face" href="${dbUrl}" x="${CX-82}" y="${y_hcy-88}" width="164" height="164" clip-path="circle(68px at 82px 84px)" preserveAspectRatio="xMidYMid meet"/>
-<ellipse id="lft" cx="${CX-ca_w+4}" cy="${y_ft+6}" rx="${ca_w+5}" ry="7" fill="${lighten(skin,0.55)}"/>
-<ellipse id="rft" cx="${CX+ca_w-4}" cy="${y_ft+6}" rx="${ca_w+5}" ry="7" fill="${lighten(skin,0.55)}"/>
-<text id="vl" x="${CX}" y="${H-5}" text-anchor="middle" font-size="10" font-family="system-ui" fill="rgba(255,255,255,0.18)">FRONT · 0° · ${bodyType}</text>
-</svg>
-<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
-<button onclick="snapTo(0)"   style="background:#2a1f60;color:#c8b8ff;border:1px solid #4a3898;padding:6px 13px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">⬆ Front</button>
-<button onclick="snapTo(90)"  style="background:#2a1f60;color:#c8b8ff;border:1px solid #4a3898;padding:6px 13px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">➡ Right</button>
-<button onclick="snapTo(180)" style="background:#2a1f60;color:#c8b8ff;border:1px solid #4a3898;padding:6px 13px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">⬇ Back</button>
-<button onclick="snapTo(270)" style="background:#2a1f60;color:#c8b8ff;border:1px solid #4a3898;padding:6px 13px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">⬅ Left</button>
-<button id="sb" onclick="toggleSpin()" style="background:#1a1040;color:#8070c0;border:1px solid #2e2060;padding:6px 11px;border-radius:8px;cursor:pointer;font-size:11px">▶ Spin</button>
+  return `
+<div style="font-family:system-ui;background:#08081a;border-radius:18px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px;">
+  <svg id="avSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="cursor:grab;display:block;">
+    <defs>
+      <radialGradient id="bgG"><stop offset="0%" stop-color="#1a1535"/><stop offset="100%" stop-color="#07071a"/></radialGradient>
+      <linearGradient id="bodyG" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="${skin_sh}"/><stop offset="50%" stop-color="${skin_hi}"/><stop offset="100%" stop-color="${skin_sh}"/></linearGradient>
+      <linearGradient id="legG" x1="0%" x2="0%" y1="0%" y2="100%"><stop offset="0%" stop-color="${skin_mid}"/><stop offset="100%" stop-color="${skin_sh}"/></linearGradient>
+      <filter id="ds"><feDropShadow dx="2" dy="4" stdDeviation="5" flood-opacity="0.3"/></filter>
+      ${dressDefs}
+    </defs>
+    <rect width="${W}" height="${H}" fill="url(#bgG)"/>
+    <ellipse id="gndSh" cx="${CX}" cy="${y_ft+14}" rx="${hi_w}" ry="10" fill="rgba(0,0,0,0.18)"/>
+    <path id="leftArm" d="${initLa}" fill="none" stroke="${skin}" stroke-width="${arm_w}" stroke-linecap="round"/>
+    <ellipse id="leftHand" cx="${CX-sh_w-10}" cy="${y_sh+206}" rx="${ah}" ry="${ah+2}" fill="${skin}"/>
+    <path id="rightArm" d="${initRa}" fill="none" stroke="${skin}" stroke-width="${arm_w}" stroke-linecap="round"/>
+    <ellipse id="rightHand" cx="${CX+sh_w+10}" cy="${y_sh+206}" rx="${ah}" ry="${ah+2}" fill="${skin}"/>
+    <path id="torso" d="${initBd}" fill="url(#bodyG)" filter="url(#ds)"/>
+    ${dressLayer}
+    <path id="neck" d="${initNk}" fill="${skin}" filter="url(#ds)"/>
+    <circle id="headBase" cx="${CX}" cy="${y_hcy}" r="68" fill="${skin}" filter="url(#ds)"/>
+    <circle id="hairBack" cx="${CX}" cy="${y_hcy}" r="70" fill="#2d1b0e" opacity="0"/>
+    <image id="faceImg" href="${dbUrl}" x="${CX-80}" y="${y_hcy-88}" width="160" height="160" clip-path="circle(68px at 80px 82px)" opacity="1"/>
+    <text id="viewLbl" x="${CX}" y="${H-16}" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.3)">FRONT · 0°</text>
+  </svg>
+  <div style="display:flex;gap:10px;">
+    <button onclick="snapTo(0)" style="background:#2a1f60;color:#c8b8ff;border:1px solid #4a3898;padding:7px 16px;border-radius:10px;cursor:pointer;font-size:12px;">⬆ Front</button>
+    <button onclick="snapTo(90)" style="background:#2a1f60;color:#c8b8ff;border:1px solid #4a3898;padding:7px 16px;border-radius:10px;cursor:pointer;font-size:12px;">➡ Right</button>
+    <button onclick="snapTo(180)" style="background:#2a1f60;color:#c8b8ff;border:1px solid #4a3898;padding:7px 16px;border-radius:10px;cursor:pointer;font-size:12px;">⬇ Back</button>
+    <button onclick="snapTo(270)" style="background:#2a1f60;color:#c8b8ff;border:1px solid #4a3898;padding:7px 16px;border-radius:10px;cursor:pointer;font-size:12px;">⬅ Left</button>
+  </div>
+  <input id="rotSl" type="range" min="0" max="359" value="0" step="1" style="width:100%;max-width:360px;accent-color:#8060e0;" oninput="setAngle(+this.value)"/>
+  <div id="angleLbl" style="color:rgba(160,140,220,0.6);font-size:12px;">FRONT · 0°</div>
 </div>
-<input type="range" min="0" max="359" value="0" step="1" style="width:260px;accent-color:#8060e0" oninput="setAngle(+this.value)" id="sl"/>
-</div>
+
 <script>
 (function(){
-var CX=${CX},SHW=${sh_w},BUW=${bu_w},WAW=${wa_w},HIW=${hi_w},THW=${th_w},CAW=${ca_w};
+var CX=${CX},W=${W},H=${H},SHW=${sh_w},BUW=${bu_w},WAW=${wa_w},HIW=${hi_w},THW=${th_w},CAW=${ca_w};
+var YSH=${y_sh},YBU=${y_bu},YWA=${y_wa},YHI=${y_hi},YTH=${y_th},YKN=${y_kn},YCA=${y_ca},YFT=${y_ft},YNER=${y_nek},YHCY=${y_hcy};
 var NW=${nw},ARW=${arm_w},AH=${ah};
-var YSH=${y_sh},YBU=${y_bu},YWA=${y_wa},YHI=${y_hi},YTH=${y_th},YKN=${y_kn},YCA=${y_ca},YFT=${y_ft};
-var YNER=${y_nek},YHCY=${y_hcy};
-var BT="${bodyType}",hasDress=${dressB64?'true':'false'};
-// Always start at FRONT view when dress is loaded
-var angle=hasDress?0:0,spinning=false,dragX=null,dragA=0;
-var DW=${dressImgW};
-var spinning=false,dragX=null,dragA=0;
-function m360(a){return((a%360)+360)%360;}
-function vn(a){a=m360(a);if(a<22)return'FRONT';if(a<67)return'FRONT-R';if(a<112)return'RIGHT';if(a<157)return'BACK-R';if(a<202)return'BACK';if(a<247)return'BACK-L';if(a<292)return'LEFT';return'FRONT-L';}
-function S(id,attr,val){var e=document.getElementById(id);if(e)e.setAttribute(attr,val);}
-function O(id,v){var e=document.getElementById(id);if(e)e.style.opacity=v;}
+var DW=${dressImgW},DH=${dressImgH};
+var angle=0,dragStartX=null,dragStartAngle=0;
+
+function mod360(a){return((a%360)+360)%360;}
+function viewName(a){a=mod360(a);if(a<22)return'FRONT';if(a<112)return'RIGHT SIDE';if(a<202)return'BACK';if(a<292)return'LEFT SIDE';return'FRONT';}
+
 function bodyPath(sw,bw,ww,hw,tw,cw,sh){
   var L=function(v){return CX-v+sh;},R=function(v){return CX+v+sh;};
-  return 'M '+L(sw)+','+YSH+' C '+L(sw+8)+','+(YSH+22)+' '+L(bw+5)+','+(YBU-16)+' '+L(bw)+','+YBU+' C '+L(bw-6)+','+(YBU+26)+' '+L(ww+4)+','+(YWA-14)+' '+L(ww)+','+YWA+' C '+L(ww+5)+','+(YWA+20)+' '+L(hw-4)+','+(YHI-12)+' '+L(hw)+','+YHI+' C '+L(hw-2)+','+(YHI+28)+' '+L(tw+4)+','+(YTH-10)+' '+L(tw)+','+YTH+' C '+L(tw-2)+','+(YTH+20)+' '+L(cw+2)+','+(YKN-8)+' '+L(cw)+','+YKN+' C '+L(cw)+','+(YKN+24)+' '+L(cw-2)+','+(YCA-6)+' '+L(cw-2)+','+YCA+' C '+L(cw-2)+','+(YCA+16)+' '+L(cw)+','+(YFT-4)+' '+L(cw+2)+','+YFT+' L '+R(cw+2)+','+YFT+' C '+R(cw)+','+(YFT-4)+' '+R(cw-2)+','+(YCA+16)+' '+R(cw-2)+','+YCA+' C '+R(cw-2)+','+(YCA-6)+' '+R(cw)+','+(YKN+24)+' '+R(cw)+','+YKN+' C '+R(cw+2)+','+(YKN-8)+' '+R(tw-2)+','+(YTH+20)+' '+R(tw)+','+YTH+' C '+R(tw+4)+','+(YTH-10)+' '+R(hw-2)+','+(YHI+28)+' '+R(hw)+','+YHI+' C '+R(hw-4)+','+(YHI-12)+' '+R(ww+5)+','+(YWA+20)+' '+R(ww)+','+YWA+' C '+R(ww+4)+','+(YWA-14)+' '+R(bw-6)+','+(YBU+26)+' '+R(bw)+','+YBU+' C '+R(bw+5)+','+(YBU-16)+' '+R(sw+8)+','+(YSH+22)+' '+R(sw)+','+YSH+' Z';
+  return'M '+L(sw)+','+YSH+' C '+L(sw+8)+','+(YSH+22)+' '+L(bw+5)+','+(YBU-16)+' '+L(bw)+','+YBU+' C '+L(bw-6)+','+(YBU+26)+' '+L(ww+4)+','+(YWA-14)+' '+L(ww)+','+YWA+' C '+L(ww+5)+','+(YWA+20)+' '+L(hw-4)+','+(YHI-12)+' '+L(hw)+','+YHI+' C '+L(hw-2)+','+(YHI+28)+' '+L(tw+4)+','+(YTH-10)+' '+L(tw)+','+YTH+' C '+L(tw-2)+','+(YTH+20)+' '+L(cw+2)+','+(YKN-8)+' '+L(cw)+','+YKN+' C '+L(cw)+','+(YKN+24)+' '+L(cw-2)+','+(YCA-6)+' '+L(cw-2)+','+YCA+' C '+L(cw-2)+','+(YCA+16)+' '+L(cw)+','+(YFT-4)+' '+L(cw+2)+','+YFT+' L '+R(cw+2)+','+YFT+' C '+R(cw)+','+(YFT-4)+' '+R(cw-2)+','+(YCA+16)+' '+R(cw-2)+','+YCA+' C '+R(cw-2)+','+(YCA-6)+' '+R(cw)+','+(YKN+24)+' '+R(cw)+','+YKN+' C '+R(cw+2)+','+(YKN-8)+' '+R(tw-2)+','+(YTH+20)+' '+R(tw)+','+YTH+' C '+R(tw+4)+','+(YTH-10)+' '+R(hw-2)+','+(YHI+28)+' '+R(hw)+','+YHI+' C '+R(hw-4)+','+(YHI-12)+' '+R(ww+5)+','+(YWA+20)+' '+R(ww)+','+YWA+' C '+R(ww+4)+','+(YWA-14)+' '+R(bw-6)+','+(YBU+26)+' '+R(bw)+','+YBU+' C '+R(bw+5)+','+(YBU-16)+' '+R(sw+8)+','+(YSH+22)+' '+R(sw)+','+YSH+' Z';
 }
-function dressPath(sw,bw,ww,hw,sh){
+
+// ✅ FIX 3A: Updated dressPath function with full body coverage
+function dressPath(sw,bw,ww,hw,tw,cw,sh){
   var L=function(v){return CX-v+sh;},R=function(v){return CX+v+sh;};
-  return 'M '+L(sw)+','+YSH+' C '+L(sw+8)+','+(YSH+22)+' '+L(bw+5)+','+(YBU-16)+' '+L(bw)+','+YBU+' C '+L(bw-6)+','+(YBU+26)+' '+L(ww+4)+','+(YWA-14)+' '+L(ww)+','+YWA+' C '+L(ww+5)+','+(YWA+20)+' '+L(hw-4)+','+(YHI-12)+' '+L(hw)+','+YHI+' C '+L(hw+2)+','+(YHI+30)+' '+L(hw+4)+','+(YFT-10)+' '+L(hw-2)+','+YFT+' L '+R(hw-2)+','+YFT+' C '+R(hw+4)+','+(YFT-10)+' '+R(hw+2)+','+(YHI+30)+' '+R(hw)+','+YHI+' C '+R(hw-4)+','+(YHI-12)+' '+R(ww+5)+','+(YWA+20)+' '+R(ww)+','+YWA+' C '+R(ww+4)+','+(YWA-14)+' '+R(bw-6)+','+(YBU+26)+' '+R(bw)+','+YBU+' C '+R(bw+5)+','+(YBU-16)+' '+R(sw+8)+','+(YSH+22)+' '+R(sw)+','+YSH+' Z';
+  var dressFlare = Math.max(hw * 0.18, 10);
+  var ftW = hw + dressFlare;
+  
+  return 'M '+L(sw)+','+YSH+
+         ' C '+L(sw+8)+','+(YSH+22)+' '+L(bw+5)+','+(YBU-16)+' '+L(bw)+','+YBU+
+         ' C '+L(bw-6)+','+(YBU+26)+' '+L(ww+4)+','+(YWA-14)+' '+L(ww)+','+YWA+
+         ' C '+L(ww+5)+','+(YWA+20)+' '+L(hw-4)+','+(YHI-12)+' '+L(hw)+','+YHI+
+         ' C '+L(hw+2)+','+(YHI+24)+' '+L(tw+6)+','+(YTH-8)+' '+L(tw+8)+','+YTH+
+         ' C '+L(tw+8)+','+(YTH+18)+' '+L(ftW-4)+','+(YKN-6)+' '+L(ftW-2)+','+YKN+
+         ' C '+L(ftW-2)+','+(YKN+20)+' '+L(ftW)+','+(YCA-4)+' '+L(ftW)+','+YCA+
+         ' C '+L(ftW)+','+(YCA+14)+' '+L(ftW+2)+','+(YFT-8)+' '+L(ftW+4)+','+YFT+
+         ' L '+R(ftW+4)+','+YFT+
+         ' C '+R(ftW+2)+','+(YFT-8)+' '+R(ftW)+','+(YCA+14)+' '+R(ftW)+','+YCA+
+         ' C '+R(ftW)+','+(YCA-4)+' '+R(ftW-2)+','+(YKN+20)+' '+R(ftW-2)+','+YKN+
+         ' C '+R(ftW-4)+','+(YKN-6)+' '+R(tw+8)+','+(YTH+18)+' '+R(tw+8)+','+YTH+
+         ' C '+R(tw+6)+','+(YTH-8)+' '+R(hw+2)+','+(YHI+24)+' '+R(hw)+','+YHI+
+         ' C '+R(hw-4)+','+(YHI-12)+' '+R(ww+5)+','+(YWA+20)+' '+R(ww)+','+YWA+
+         ' C '+R(ww+4)+','+(YWA-14)+' '+R(bw-6)+','+(YBU+26)+' '+R(bw)+','+YBU+
+         ' C '+R(bw+5)+','+(YBU-16)+' '+R(sw+8)+','+(YSH+22)+' '+R(sw)+','+YSH+' Z';
 }
+
 function armPath(s,sw,sh){
   var ax=CX+s*sw+sh,ay=YSH+10,ex=CX+s*(sw+28)+sh,ey=YSH+102,hx=CX+s*(sw+10)+sh,hy=YSH+198;
-  return 'M '+ax+','+ay+' C '+(ax+s*16)+','+(ay+26)+' '+(ex-s*5)+','+(ey-24)+' '+ex+','+ey+' C '+(ex+s*4)+','+(ey+32)+' '+(hx+s*9)+','+(hy-32)+' '+hx+','+hy;
+  return'M '+ax+','+ay+' C '+(ax+s*16)+','+(ay+26)+' '+(ex-s*5)+','+(ey-24)+' '+ex+','+ey+' C '+(ex+s*4)+','+(ey+32)+' '+(hx+s*9)+','+(hy-32)+' '+hx+','+hy;
 }
-function neckPath(nn,sh){
-  return 'M '+(CX-nn+sh)+','+(YNER+4)+' C '+(CX-nn+2+sh)+','+(YNER+14)+' '+(CX-nn+2+sh)+','+(YSH-8)+' '+(CX-nn+3+sh)+','+YSH+' L '+(CX+nn-3+sh)+','+YSH+' C '+(CX+nn-2+sh)+','+(YSH-8)+' '+(CX+nn-2+sh)+','+(YNER+14)+' '+(CX+nn+sh)+','+(YNER+4)+' Z';
-}
-function upd(a){
-  a=m360(a);var r=a*Math.PI/180,cosA=Math.cos(r),sinA=Math.sin(r);
-  var wS=Math.abs(cosA)*0.84+0.16,sh=Math.round(sinA*22);
-  var sw=Math.max(10,Math.round(SHW*wS)),bw=Math.max(10,Math.round(BUW*wS));
-  var ww=Math.max(10,Math.round(WAW*wS)),hw=Math.max(10,Math.round(HIW*wS));
-  var tw=Math.max(8,Math.round(THW*wS)),cw=Math.max(6,Math.round(CAW*wS));
-  var nn=Math.max(5,Math.round(NW*wS)),aw=Math.round(ARW*wS),ah2=Math.round(aw/2);
-  S('body','d',bodyPath(sw,bw,ww,hw,tw,cw,sh));
+
+function neckPath(nn,sh){return'M '+(CX-nn+sh)+','+(YNER+4)+' C '+(CX-nn+2+sh)+','+(YNER+14)+' '+(CX-nn+2+sh)+','+(YSH-8)+' '+(CX-nn+3+sh)+','+YSH+' L '+(CX+nn-3+sh)+','+YSH+' C '+(CX+nn-2+sh)+','+(YSH-8)+' '+(CX+nn-2+sh)+','+(YNER+14)+' '+(CX+nn+sh)+','+(YNER+4)+' Z';}
+
+function update(a){
+  a=mod360(a);
+  var rad=a*Math.PI/180,cosA=Math.cos(rad),sinA=Math.sin(rad);
+  var wS=Math.abs(cosA)*0.82+0.18,sh=Math.round(sinA*18);
+  var sw=Math.max(8,Math.round(SHW*wS)),bw=Math.max(8,Math.round(BUW*wS));
+  var ww=Math.max(8,Math.round(WAW*wS)),hw=Math.max(8,Math.round(HIW*wS));
+  var tw=Math.max(6,Math.round(THW*wS)),cw=Math.max(6,Math.round(CAW*wS));
+  var nn=Math.max(6,Math.round(NW*wS)),aw=Math.max(10,Math.round(ARW*wS)),ah=Math.max(6,Math.round(AH*wS));
+  
+  var showL=!(a>20&&a<160),showR=!(a>200&&a<340);
+  var faceOp=Math.max(0,cosA).toFixed(2),backOp=Math.max(0,-cosA).toFixed(2);
+  
+  function S(id,attr,val){var el=document.getElementById(id);if(el)el.setAttribute(attr,val);}
+  function O(id,val){var el=document.getElementById(id);if(el)el.style.opacity=val;}
+  
+  S('torso','d',bodyPath(sw,bw,ww,hw,tw,cw,sh));
   S('neck','d',neckPath(nn,sh));
-  S('head','cx',CX+sh);
-  var fi=document.getElementById('face');if(fi){fi.setAttribute('x',CX-82+sh);}
-  O('face',Math.max(0,cosA).toFixed(2));
-  S('lft','cx',CX-cw+4+sh);S('rft','cx',CX+cw-4+sh);
-  if(!hasDress){
-    var sL=!(a>28&&a<152),sR=!(a>208&&a<332);
-    S('la','d',armPath(-1,sw,sh));S('ra','d',armPath(1,sw,sh));
-    O('la',sL?'1':'0');O('lh',sL?'1':'0');O('ra',sR?'1':'0');O('rh',sR?'1':'0');
-    S('lh','cx',CX-sw-10+sh);S('rh','cx',CX+sw+10+sh);
+  S('gndSh','rx',hw);
+  S('leftArm','d',armPath(-1,sw,sh));S('leftArm','stroke-width',aw);S('leftHand','cx',CX-sw-10+sh);S('leftHand','rx',ah);S('leftHand','ry',ah+2);O('leftArm',showL?'1':'0');O('leftHand',showL?'1':'0');
+  S('rightArm','d',armPath(1,sw,sh));S('rightArm','stroke-width',aw);S('rightHand','cx',CX+sw+10+sh);S('rightHand','rx',ah);S('rightHand','ry',ah+2);O('rightArm',showR?'1':'0');O('rightHand',showR?'1':'0');
+  S('headBase','cx',CX+sh);S('faceImg','x',CX-80+sh);S('hairBack','cx',CX+sh);
+  O('faceImg',faceOp);O('headBase',faceOp>0.05?'1':'0');O('hairBack',backOp);
+  
+  // ✅ FIX 3B: Update dressPath call with all parameters
+  var dc=document.getElementById('dClP');if(dc)dc.setAttribute('d',dressPath(sw,bw,ww,hw,tw,cw,sh));
+  
+  // ✅ FIX 3C: Update dress image scaling with height
+  var di=document.getElementById('dImg');
+  if(di){
+    var sW=DW*wS;
+    var sH=Math.round((YFT-YSH+60)*wS);  // ✅ Scale height with rotation
+    di.setAttribute('width',sW);
+    di.setAttribute('height',sH);
+    di.setAttribute('x',CX-sW/2+sh);
+    di.setAttribute('y',YSH-15);
   }
-  if(hasDress){
-    // Clip path rotates WITH body silhouette
-    var dc=document.getElementById('dClP');if(dc)dc.setAttribute('d',dressPath(sw,bw,ww,hw,sh));
-    // Dress IMAGE stays front-facing (no +sh) — only width scales for perspective
-    var di=document.getElementById('dImg');
-    if(di){
-      var sW=DW*wS;
-      di.setAttribute('width',sW.toFixed(1));
-      di.setAttribute('x',(CX-sW/2+sh).toFixed(1));  // sh = body horizontal offset during rotation
-      // Fade dress when viewed from back
-      di.style.opacity=(0.52+Math.max(0,cosA)*0.44).toFixed(2);
-    }
-    S('la2','d',armPath(-1,sw,sh));S('ra2','d',armPath(1,sw,sh));
-    var sL2=!(a>28&&a<152),sR2=!(a>208&&a<332);
-    O('la2',sL2?'0.9':'0');O('lh2',sL2?'0.9':'0');O('ra2',sR2?'0.9':'0');O('rh2',sR2?'0.9':'0');
-    S('lh2','cx',CX-sw-10+sh);S('rh2','cx',CX+sw+10+sh);
-  }
-  S('vl','x',CX+sh);
-  var vl=document.getElementById('vl');if(vl)vl.textContent=vn(a)+' · '+Math.round(a)+'° · '+BT;
-  var sl=document.getElementById('sl');if(sl)sl.value=Math.round(a);
+  
+  var vn=viewName(a);S('viewLbl','x',CX+sh);
+  var lbl=document.getElementById('viewLbl');if(lbl)lbl.textContent=vn+' · '+Math.round(a)+'°';
+  var al=document.getElementById('angleLbl');if(al)al.textContent=vn+' · '+Math.round(a)+'°';
+  var sl=document.getElementById('rotSl');if(sl)sl.value=Math.round(a);
 }
-function setAngle(a){angle=m360(a);upd(angle);}window.setAngle=setAngle;
-function snapTo(t){var st=angle,df=m360(t-st);if(df>180)df-=360;var steps=30,step=0;
-  function tick(){step++;var p=step/steps;p=p<.5?2*p*p:-1+(4-2*p)*p;angle=m360(st+df*p);upd(angle);if(step<steps)requestAnimationFrame(tick);else{angle=m360(t);upd(angle);}}
-  requestAnimationFrame(tick);}window.snapTo=snapTo;
-function toggleSpin(){spinning=!spinning;var b=document.getElementById('sb');if(b)b.textContent=spinning?'⏸ Stop':'▶ Spin';if(spinning)loop();}window.toggleSpin=toggleSpin;
-function loop(){if(!spinning)return;angle=m360(angle+1.2);upd(angle);requestAnimationFrame(loop);}
-var sv=document.getElementById('av');
-if(sv){
-  sv.addEventListener('mousedown',function(e){spinning=false;var b=document.getElementById('sb');if(b)b.textContent='▶ Spin';dragX=e.clientX;dragA=angle;sv.style.cursor='grabbing';e.preventDefault();});
-  document.addEventListener('mousemove',function(e){if(dragX===null)return;angle=m360(dragA+(e.clientX-dragX)*0.52);upd(angle);});
-  document.addEventListener('mouseup',function(){dragX=null;if(sv)sv.style.cursor='grab';});
-  sv.addEventListener('touchstart',function(e){spinning=false;dragX=e.touches[0].clientX;dragA=angle;e.preventDefault();},{passive:false});
-  document.addEventListener('touchmove',function(e){if(dragX===null)return;angle=m360(dragA+(e.touches[0].clientX-dragX)*0.52);upd(angle);e.preventDefault();},{passive:false});
-  document.addEventListener('touchend',function(){dragX=null;});
+
+function setAngle(a){angle=mod360(a);update(angle);}
+window.setAngle=setAngle;
+
+function snapTo(target){
+  var start=angle,diff=mod360(target-start);if(diff>180)diff-=360;
+  var steps=30,step=0;
+  function tick(){step++;var t=step/steps;t=t<0.5?2*t*t:-1+(4-2*t)*t;angle=mod360(start+diff*t);update(angle);if(step<steps)requestAnimationFrame(tick);else{angle=mod360(target);update(angle);}}
+  requestAnimationFrame(tick);
 }
-upd(0);
+window.snapTo=snapTo;
+
+var svg=document.getElementById('avSvg');
+if(svg){
+  svg.addEventListener('mousedown',function(e){dragStartX=e.clientX;dragStartAngle=angle;svg.style.cursor='grabbing';e.preventDefault();});
+  document.addEventListener('mousemove',function(e){if(dragStartX===null)return;var deltaX=e.clientX-dragStartX;angle=mod360(dragStartAngle+deltaX*0.6);update(angle);});
+  document.addEventListener('mouseup',function(){dragStartX=null;if(svg)svg.style.cursor='grab';});
+  svg.addEventListener('touchstart',function(e){dragStartX=e.touches[0].clientX;dragStartAngle=angle;e.preventDefault();},{passive:false});
+  document.addEventListener('touchmove',function(e){if(dragStartX===null)return;var deltaX=e.touches[0].clientX-dragStartX;angle=mod360(dragStartAngle+deltaX*0.6);update(angle);},{passive:false});
+  document.addEventListener('touchend',function(){dragStartX=null;});
+}
+update(0);
 })();
-</script></body></html>`
+</script>`
 }
 
-export default function Home() {
-  const [step,         setStep]        = useState<'upload'|'result'>('upload')
-  const [loading,      setLoading]     = useState(false)
-  const [error,        setError]       = useState('')
-  const [result,       setResult]      = useState<any>(null)
-  const [visImg,       setVisImg]      = useState<string|null>(null)
-  const [preview,      setPreview]     = useState<string|null>(null)
-  const [category,     setCategory]    = useState('Women')
-  const [dressB64,     setDressB64]    = useState<string|null>(null)
-  const [dressPreview, setDressPreview]= useState<string|null>(null)
-  const [dressLoading, setDressLoading]= useState(false)
-  const [activeTab,    setActiveTab]   = useState<'avatar'|'tryon'|'shop'>('avatar')
-  const fileRef  = useRef<HTMLInputElement>(null)
-  const dressRef = useRef<HTMLInputElement>(null)
+export default function Page() {
+  const [category,setCategory]=useState('Women')
+  const [photo,setPhoto]=useState<File|null>(null)
+  const [preview,setPreview]=useState<string|null>(null)
+  const [loading,setLoading]=useState(false)
+  const [result,setResult]=useState<any>(null)
+  const [error,setError]=useState<string|null>(null)
+  const [dressB64,setDressB64]=useState<string|null>(null)
+  const [dressPreview,setDressPreview]=useState<string|null>(null)
+  const [dressLoading,setDressLoading]=useState(false)
+  const [activeTab,setActiveTab]=useState<'analysis'|'tryon'|'shop'>('analysis')
+  const photoRef=useRef<HTMLInputElement>(null)
+  const dressRef=useRef<HTMLInputElement>(null)
 
-  const analyze = async (file: File) => {
-    setLoading(true); setError('')
-    try {
-      const form = new FormData(); form.append('file',file); form.append('category',category)
-      const data = await fetch('/api/analyze',{method:'POST',body:form}).then(r=>r.json())
-      if(data.error){setError(data.error);setLoading(false);return}
-      setResult(data); if(data.vis_jpeg_b64)setVisImg(`data:image/jpeg;base64,${data.vis_jpeg_b64}`)
-      setStep('result')
-    } catch(e:any){setError(e.message)}
-    setLoading(false)
+  const handlePhoto=(e:React.ChangeEvent<HTMLInputElement>)=>{
+    const f=e.target.files?.[0]
+    if(f){setPhoto(f);setPreview(URL.createObjectURL(f));setResult(null);setError(null);setDressB64(null);setDressPreview(null)}
   }
 
-  const tryOn = async (file: File) => {
-    setDressLoading(true); setDressPreview(URL.createObjectURL(file))
-    try {
-      const form = new FormData(); form.append('file',file)
-      const data = await fetch('/api/extract-dress',{method:'POST',body:form}).then(r=>r.json())
-      if(data.error){setError(data.error);setDressLoading(false);return}
-      setDressB64(data.dress_b64); setDressPreview(`data:image/png;base64,${data.dress_b64}`)
-      setActiveTab('tryon')
-    } catch(e:any){setError(e.message)}
-    setDressLoading(false)
+  const analyze=async()=>{
+    if(!photo)return
+    setLoading(true);setError(null)
+    const fd=new FormData();fd.append('file',photo);fd.append('category',category)
+    try{
+      const r=await fetch('/api/analyze',{method:'POST',body:fd})
+      const d=await r.json()
+      if(!r.ok)throw new Error(d.error||'Analysis failed')
+      // ✅ Store category in result for avatar gender detection
+      d.category = category
+      setResult(d);setActiveTab('analysis')
+    }catch(err:any){setError(err.message||'Error')}
+    finally{setLoading(false)}
   }
 
-  const clearDress = () => {setDressB64(null);setDressPreview(null)}
-
-  const WOMEN_BUST: Record<string,number> = {XS:76,S:82,M:88,L:94,XL:100,XXL:108,XXXL:116,'4XL':124}
-  const fitBadges = () => {
-    if(!result) return null
-    const std = WOMEN_BUST[result.size]??result.bust_cm
-    return [['Bust/Chest', std-result.bust_cm],['Waist',(std-14)-result.waist_cm],['Hip',(std+6)-result.hip_cm]].map(([zone,diff])=>{
-      const d=diff as number
-      const [icon,lbl,col]=d>=0&&d<6?['✅','Perfect Fit','#22c55e']:d>=6?['⬆','Slightly Loose','#eab308']:d>=-5?['⚠','Snug Fit','#f97316']:['❌','Too Tight','#ef4444']
-      return (<div key={zone as string} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:'#07071a',borderLeft:`4px solid ${col}`,borderRadius:6,marginBottom:5,fontSize:12}}>
-        <span>{icon}</span><div><div style={{color:col,fontWeight:700}}>{zone as string}</div><div style={{color:'#555',fontSize:11}}>{lbl} ({d>=0?'+':''}{d.toFixed(1)}cm)</div></div>
-      </div>)
-    })
+  const tryOn=async(f:File)=>{
+    if(!result)return
+    setDressLoading(true);setDressPreview(URL.createObjectURL(f))
+    const fd=new FormData();fd.append('file',f)
+    try{
+      const r=await fetch('/api/extract-dress',{method:'POST',body:fd})
+      const d=await r.json()
+      if(!r.ok)throw new Error(d.error||'Extract failed')
+      setDressB64(d.dress_b64)
+    }catch(err:any){console.error(err)}
+    finally{setDressLoading(false)}
   }
 
-  const avatarFrame = (id: string) => {
-    // Key MUST change when dressB64 changes — otherwise iframe won't re-render
-    const frameKey = `${id}-${dressB64 ? dressB64.slice(-12) : 'bare'}`
-    return (
-      <div style={{background:'#08081a',borderRadius:16,overflow:'hidden',minHeight:480}}>
-        <iframe key={frameKey} srcDoc={result ? buildAvatar(result, dressB64) : ''} style={{width:'100%',height:560,border:'none',display:'block'}} title="avatar"/>
-      </div>
-    )
+  const clearDress=()=>{setDressB64(null);setDressPreview(null)}
+
+  const fitBadges=()=>{
+    if(!result)return null
+    const ease={Shoulder:0.5,Bust:2.5,Waist:3.0,Hip:2.0}
+    const labels=[
+      {k:'Shoulder',v:result.shoulder_cm},
+      {k:'Bust',v:result.bust_cm},
+      {k:'Waist',v:result.waist_cm},
+      {k:'Hip',v:result.hip_cm}
+    ]
+    return <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+      {labels.map(({k,v})=>{
+        const e=ease[k as keyof typeof ease]||2.5
+        const rating=e<=1.5?'Snug':e<=4.0?'Perfect':'Roomy'
+        const col=e<=1.5?'#c08060':e<=4.0?'#60c080':'#6080c0'
+        return <div key={k} style={{background:'#0d0d22',border:'1px solid #1e1848',borderRadius:10,padding:'8px 12px'}}>
+          <div style={{color:'#6060a0',fontSize:11}}>{k}</div>
+          <div style={{color:'#e8d0ff',fontSize:16,fontWeight:700,marginTop:2}}>{v}cm</div>
+          <div style={{color:col,fontSize:10,marginTop:3,fontWeight:600}}>{rating} ({e}cm ease)</div>
+        </div>
+      })}
+    </div>
   }
 
-  const tabBtn=(id:string,lbl:string)=>(
-    <button onClick={()=>setActiveTab(id as any)} style={{padding:'10px 18px',border:'none',cursor:'pointer',fontWeight:700,fontSize:13,background:'transparent',color:activeTab===id?'#e8c99a':'#4040a0',borderBottom:activeTab===id?'2px solid #e8c99a':'2px solid transparent',whiteSpace:'nowrap'}}>{lbl}</button>
+  const avatarFrame=(id:string)=>(
+    <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:16,padding:18}}>
+      <div style={{color:'#e8c99a',fontWeight:800,marginBottom:8}}>✨ Your 3D Avatar — Drag to Rotate</div>
+      {result&&<div id={id} dangerouslySetInnerHTML={{__html:buildAvatar(result,dressB64)}}/>}
+    </div>
   )
 
-  return (
-    <main style={{minHeight:'100vh',background:'#06061a',color:'#e8e0ff',fontFamily:'system-ui,sans-serif'}}>
-      <div style={{background:'linear-gradient(135deg,#1a0938,#0d0628)',padding:'18px 24px',borderBottom:'1px solid #1e1848',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
-        <div>
-          <h1 style={{margin:0,fontSize:'1.45rem',fontWeight:800,color:'#e8c99a'}}>👗 3D Fashion Stylist Pro</h1>
-          <p style={{margin:'2px 0 0',color:'#7060a0',fontSize:'0.76rem'}}>AI body analysis · 3D avatar with legs · Virtual try-on · Smart recommendations</p>
-        </div>
-        {result&&<div style={{display:'flex',alignItems:'center',gap:10,background:'#1a1848',border:'1px solid #2e2868',borderRadius:12,padding:'7px 14px'}}>
-          <span style={{width:12,height:12,borderRadius:'50%',background:result.skin_hex,border:'1px solid #888',display:'inline-block'}}/>
-          <span style={{fontWeight:800,color:'#e8c99a'}}>{result.size}</span>
-          <span style={{color:'#8060c0',fontSize:12}}>{result.body_icon} {result.body_type}</span>
-        </div>}
-      </div>
+  return(
+    <main style={{background:'#060610',minHeight:'100vh',padding:'20px',fontFamily:'system-ui'}}>
+      <div style={{maxWidth:1200,margin:'auto'}}>
+        <h1 style={{color:'#e8c99a',textAlign:'center',fontSize:28,marginBottom:6}}>👗 3D Fashion Stylist Pro v16</h1>
+        <p style={{color:'#6060a0',textAlign:'center',marginBottom:24,fontSize:13}}>Accurate body analysis · Gender-correct avatars · Full-body dress try-on</p>
 
-      <div style={{maxWidth:1140,margin:'0 auto',padding:'18px 14px'}}>
-        {step==='upload'&&(
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(290px,1fr))',gap:18}}>
-            <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:16,padding:22}}>
-              <div style={{color:'#e8c99a',fontWeight:800,fontSize:15,marginBottom:6}}>📸 Upload Full-Body Photo</div>
-              <div style={{color:'#5050a0',fontSize:12,marginBottom:14}}>Stand straight, facing camera, full body visible head to toe</div>
-              <div style={{display:'flex',gap:8,marginBottom:14}}>
-                {['Women','Men','Kids'].map(c=><button key={c} onClick={()=>setCategory(c)} style={{flex:1,padding:'8px 0',border:`1px solid ${category===c?'#8060e0':'#1e1848'}`,borderRadius:8,cursor:'pointer',fontWeight:700,fontSize:12,background:category===c?'#2a1f60':'#0d0d2a',color:category===c?'#e8c99a':'#5040a0'}}>{c}</button>)}
-              </div>
-              <div onClick={()=>fileRef.current?.click()} style={{border:'2px dashed #2a2860',borderRadius:12,padding:28,cursor:'pointer',background:'#0d0d2a',textAlign:'center',minHeight:180,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10}}>
-                {preview?<img src={preview} alt="preview" style={{maxHeight:200,borderRadius:8,objectFit:'contain'}}/>:<><div style={{fontSize:48}}>📷</div><div style={{color:'#4040a0',fontSize:13}}>Click or drop photo here</div><div style={{color:'#2a2a60',fontSize:11}}>JPG · PNG · WEBP</div></>}
-              </div>
-              <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f){setPreview(URL.createObjectURL(f));analyze(f)}}}/>
-              {loading&&<div style={{marginTop:12,color:'#8060e0',fontSize:13,textAlign:'center',padding:10,background:'#1a1848',borderRadius:8}}>⏳ Analysing body measurements...</div>}
-              {error&&<div style={{marginTop:12,padding:'10px 14px',background:'#2a0a0a',border:'1px solid #880000',borderRadius:8,color:'#ff8080',fontSize:12}}>❌ {error}</div>}
+        {!result&&(
+          <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:18,padding:24,maxWidth:500,margin:'auto'}}>
+            <div style={{display:'flex',gap:10,marginBottom:18}}>
+              {['Women','Men','Kids'].map(c=><button key={c} onClick={()=>setCategory(c)} style={{flex:1,background:category===c?'linear-gradient(135deg,#6040c0,#9060e0)':'#1a1848',color:category===c?'#fff':'#7070b0',border:category===c?'none':'1px solid #2a2860',padding:'10px',borderRadius:10,cursor:'pointer',fontWeight:700,fontSize:13}}>{c}</button>)}
             </div>
-            <div style={{background:'#10103a',border:'1px solid #1e1848',borderRadius:16,padding:22}}>
-              <div style={{color:'#e8c99a',fontWeight:700,fontSize:14,marginBottom:14}}>✨ What you get</div>
-              {[['📏','Accurate body measurements (shoulder, bust, waist, hip)'],['👗','Size recommendation — Indian standard chart'],['🎨','Personalised colour palette for your skin tone'],['👤','Full-body 3D avatar (with legs!) — drag to rotate'],['🪄','Virtual try-on — see dresses fitted on YOUR body'],['🛍','Shopping links with your exact size on Amazon & Flipkart']].map(([e,t])=>(
-                <div key={t as string} style={{display:'flex',gap:12,alignItems:'flex-start',marginBottom:12}}>
-                  <span style={{fontSize:18,flexShrink:0}}>{e}</span>
-                  <span style={{color:'#7060a0',fontSize:13}}>{t}</span>
-                </div>
-              ))}
-              <div style={{marginTop:14,padding:'12px 14px',background:'#0d0d22',border:'1px solid #1a1848',borderRadius:10,fontSize:12,color:'#4a4880'}}>
-                💡 <b style={{color:'#6a6898'}}>Best results:</b> Full body in frame, standing straight, plain background, good lighting
-              </div>
+            <div onClick={()=>photoRef.current?.click()} style={{border:'2px dashed #2a2860',borderRadius:14,padding:24,cursor:'pointer',background:'#0d0d2a',textAlign:'center',minHeight:200,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12}}>
+              {preview?<img src={preview} alt="preview" style={{maxHeight:200,borderRadius:12,objectFit:'contain'}}/>:<><div style={{fontSize:48}}>📸</div><div style={{color:'#4040a0',fontSize:14}}>Click to upload photo</div><div style={{color:'#2a2a60',fontSize:11}}>Full body · Good lighting · Plain background works best</div></>}
             </div>
+            <input ref={photoRef} type="file" accept="image/*" style={{display:'none'}} onChange={handlePhoto}/>
+            {error&&<div style={{marginTop:12,padding:12,background:'#1a0a10',border:'1px solid #401020',borderRadius:10,color:'#c08080',fontSize:13}}>{error}</div>}
+            <button onClick={analyze} disabled={!photo||loading} style={{marginTop:18,width:'100%',background:photo&&!loading?'linear-gradient(135deg,#6040c0,#9060e0)':'#2a2860',color:photo&&!loading?'#fff':'#4040a0',border:'none',padding:'14px',borderRadius:12,cursor:photo&&!loading?'pointer':'not-allowed',fontWeight:800,fontSize:15}}>{loading?'⏳ Analyzing...':'🔬 Analyze Photo'}</button>
           </div>
         )}
 
-        {step==='result'&&result&&(
+        {result&&(
           <div>
-            <div style={{display:'flex',borderBottom:'1px solid #1e1848',marginBottom:18,overflowX:'auto'}}>
-              {tabBtn('avatar','👤 3D Avatar')}
-              {tabBtn('tryon','👗 Try-On')}
-              {tabBtn('shop','🛍 Shop')}
-              <button onClick={()=>{setStep('upload');setResult(null);setPreview(null);clearDress()}} style={{marginLeft:'auto',padding:'8px 14px',background:'#1a1848',color:'#6050a0',border:'1px solid #2a2860',borderRadius:8,cursor:'pointer',fontSize:12}}>📸 New Photo</button>
+            <div style={{display:'flex',gap:12,marginBottom:18,justifyContent:'center',flexWrap:'wrap'}}>
+              {[{k:'analysis',l:'📊 Analysis'},{k:'tryon',l:'👗 Try-On'},{k:'shop',l:'🛍️ Shop'}].map(({k,l})=><button key={k} onClick={()=>setActiveTab(k as any)} style={{background:activeTab===k?'linear-gradient(135deg,#6040c0,#9060e0)':'#1a1848',color:activeTab===k?'#fff':'#7070b0',border:activeTab===k?'none':'1px solid #2a2860',padding:'10px 24px',borderRadius:11,cursor:'pointer',fontWeight:700,fontSize:13}}>{l}</button>)}
+              <button onClick={()=>{setResult(null);setPhoto(null);setPreview(null);setDressB64(null);setDressPreview(null);setActiveTab('analysis')}} style={{background:'#1a0a20',color:'#c080a0',border:'1px solid #401030',padding:'10px 20px',borderRadius:11,cursor:'pointer',fontWeight:700,fontSize:13}}>↻ New Photo</button>
             </div>
 
-            {activeTab==='avatar'&&(
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:18}}>
+            {activeTab==='analysis'&&(
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(350px,1fr))',gap:18}}>
                 {avatarFrame('av1')}
                 <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                  {visImg&&<img src={visImg} alt="detection" style={{width:'100%',borderRadius:12,border:'1px solid #2a2860',maxHeight:260,objectFit:'contain',background:'#000'}}/>}
-                  <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:14,padding:16}}>
-                    <div style={{color:'#e8c99a',fontWeight:800,marginBottom:6}}>{result.body_icon} {result.body_type} <span style={{marginLeft:8,background:'#2a1f60',padding:'2px 10px',borderRadius:6,fontSize:14}}>{result.size}</span></div>
-                    <div style={{color:'#6050a0',fontSize:12,marginBottom:12}}>{result.body_desc}</div>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
-                      {[['Shoulder',result.shoulder_cm],['Bust',result.bust_cm],['Waist',result.waist_cm],['Hip',result.hip_cm],['Height',result.height_cm],['Inseam',result.inseam_cm]].map(([k,v])=>(
-                        <div key={k as string} style={{background:'#0d0d22',border:'1px solid #1a1848',borderRadius:8,padding:'8px 10px'}}>
-                          <div style={{color:'#4a4870',fontSize:10,textTransform:'uppercase',letterSpacing:1}}>{k}</div>
-                          <div style={{color:'#e8e0ff',fontWeight:700,fontSize:16}}>{v}<span style={{fontSize:10,color:'#4a4870',marginLeft:2}}>cm</span></div>
-                        </div>
-                      ))}
+                  <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:16,padding:18}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                      <div>
+                        <div style={{color:'#e8c99a',fontSize:18,fontWeight:800}}>{result.body_icon||'👤'} {result.body_type}</div>
+                        <div style={{color:'#5050a0',fontSize:12}}>{result.body_desc}</div>
+                      </div>
+                      <div style={{background:'linear-gradient(135deg,#6040c0,#9060e0)',color:'#fff',padding:'8px 16px',borderRadius:12,fontWeight:800,fontSize:20}}>SIZE {result.size}</div>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
+                      {[{l:'Height',v:`${result.height_cm}cm`},{l:'Shoulder',v:`${result.shoulder_cm}cm`},{l:'Bust',v:`${result.bust_cm}cm`},{l:'Waist',v:`${result.waist_cm}cm`},{l:'Hip',v:`${result.hip_cm}cm`},{l:'Inseam',v:`${result.inseam_cm}cm`}].map(({l,v})=><div key={l} style={{background:'#0d0d22',border:'1px solid #1e1848',borderRadius:10,padding:'8px 10px'}}><div style={{color:'#6060a0',fontSize:10}}>{l}</div><div style={{color:'#e8d0ff',fontSize:15,fontWeight:700,marginTop:2}}>{v}</div></div>)}
                     </div>
                   </div>
                   <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:14,padding:16}}>
