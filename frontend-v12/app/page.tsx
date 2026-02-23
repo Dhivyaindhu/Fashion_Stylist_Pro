@@ -13,8 +13,8 @@ const COLOR_HEX: Record<string,string> = {
 
 const PRODUCTS: Record<string,any[]> = {
   Women:[
-    {name:"Floral Wrap Dress",body:["Hourglass","Full Hourglass","Rectangle"],colors:["Pastel Pink","Lavender","Blush Rose"],sizes:["XS","S","M","L","XL","XXL"],amazon:"https://www.amazon.in/s?k=women+floral+wrap+dress",flipkart:"https://www.flipkart.com/search?q=women+floral+wrap+dress"},
-    {name:"A-Line Ethnic Kurta",body:["Pear","Rectangle","Petite","Apple"],colors:["Royal Blue","Mint Green","Butter Yellow"],sizes:["XS","S","M","L","XL","XXL","XXXL"],amazon:"https://www.amazon.in/s?k=women+a-line+ethnic+kurta",flipkart:"https://www.flipkart.com/search?q=women+a+line+kurta"},
+    {name:"Floral Wrap Dress",body:["Hourglass","Full Hourglass","Rectangle","Brick"],colors:["Pastel Pink","Lavender","Blush Rose"],sizes:["XS","S","M","L","XL","XXL"],amazon:"https://www.amazon.in/s?k=women+floral+wrap+dress",flipkart:"https://www.flipkart.com/search?q=women+floral+wrap+dress"},
+    {name:"A-Line Ethnic Kurta",body:["Pear","Rectangle","Petite","Apple","Brick","Oval"],colors:["Royal Blue","Mint Green","Butter Yellow"],sizes:["XS","S","M","L","XL","XXL","XXXL"],amazon:"https://www.amazon.in/s?k=women+a-line+ethnic+kurta",flipkart:"https://www.flipkart.com/search?q=women+a+line+kurta"},
     {name:"Bodycon Party Dress",body:["Hourglass","Full Hourglass"],colors:["Cobalt","Crimson","Pure White"],sizes:["XS","S","M","L","XL"],amazon:"https://www.amazon.in/s?k=women+bodycon+party+dress",flipkart:"https://www.flipkart.com/search?q=women+bodycon+dress"},
     {name:"Empire Waist Maxi",body:["Apple","Pear","Petite"],colors:["Lavender","Soft Peach","Mint Green"],sizes:["XS","S","M","L","XL","XXL"],amazon:"https://www.amazon.in/s?k=women+empire+waist+maxi",flipkart:"https://www.flipkart.com/search?q=women+empire+waist+maxi"},
     {name:"Anarkali Suit",body:["Apple","Pear","Full Hourglass","Rectangle"],colors:["Deep Burgundy","Cobalt","Jade"],sizes:["S","M","L","XL","XXL","XXXL"],amazon:"https://www.amazon.in/s?k=women+anarkali+suit",flipkart:"https://www.flipkart.com/search?q=women+anarkali"},
@@ -63,9 +63,49 @@ function buildAvatar(result: any, dressB64: string|null): string {
   const skin_sh=lighten(skin,0.68), skin_hi=lighten(skin,1.32)
   const skin_mid=lighten(skin,0.84)
 
-  const SKINS:any = {Fair:{ds:'f8d5c2',h:'b8860b'},Light:{ds:'e8b89a',h:'4a3728'},Medium:{ds:'c68642',h:'2d1b0e'},Tan:{ds:'a0522d',h:'1a0f0a'},Deep:{ds:'4a2912',h:'0a0505'}}
-  const pal = SKINS[skinTone]||SKINS.Medium
-  const dbUrl = `https://api.dicebear.com/9.x/lorelei/svg?seed=${skinTone}${bodyType}&skinColor=${pal.ds}&hairColor=${pal.h}&backgroundColor=transparent&scale=120`
+  // Hair and feature colors per skin tone
+  const HAIR_CLR:any = {Fair:'#8B6914',Light:'#5C3A1E',Medium:'#2C1810',Tan:'#1A0E08',Deep:'#080303'}
+  const HAIR_HI:any  = {Fair:'#C4A355',Light:'#8B5E3C',Medium:'#4A2818',Tan:'#2C1610',Deep:'#150808'}
+  const hairClr = HAIR_CLR[skinTone]||HAIR_CLR.Medium
+  const hairHi  = HAIR_HI[skinTone]||HAIR_HI.Medium
+  const lipClr  = skinTone==='Fair'?'#E8909A':skinTone==='Light'?'#D4787A':skinTone==='Deep'?'#8B3A3A':'#C4606A'
+  const eyeClr  = skinTone==='Fair'?'#5C4033':skinTone==='Deep'?'#1A0A00':'#2C1810'
+  // Build inline SVG face (clean anime-style, no external dependency)
+  function faceAt(fx:number,fy:number,fr:number,sh:number){
+    const cx=fx+sh, cy=fy
+    const hs=fr*0.92 // head scale
+    // Face oval
+    const faceOval=`<ellipse cx="${cx}" cy="${cy}" rx="${hs}" ry="${hs*1.08}" fill="${skin}"/>`
+    // Hair - full flowing style
+    const hairTop=`<ellipse cx="${cx}" cy="${cy-hs*0.18}" rx="${hs*1.04}" ry="${hs*0.72}" fill="${hairClr}"/>`
+    const hairL=`<path d="M ${cx-hs*0.96},${cy-hs*0.1} C ${cx-hs*1.18},${cy+hs*0.4} ${cx-hs*1.12},${cy+hs*0.85} ${cx-hs*0.82},${cy+hs*1.02} C ${cx-hs*0.7},${cy+hs*0.72} ${cx-hs*0.72},${cy+hs*0.38} ${cx-hs*0.88},${cy+hs*0.08} Z" fill="${hairClr}"/>`
+    const hairR=`<path d="M ${cx+hs*0.96},${cy-hs*0.1} C ${cx+hs*1.18},${cy+hs*0.4} ${cx+hs*1.12},${cy+hs*0.85} ${cx+hs*0.82},${cy+hs*1.02} C ${cx+hs*0.7},${cy+hs*0.72} ${cx+hs*0.72},${cy+hs*0.38} ${cx+hs*0.88},${cy+hs*0.08} Z" fill="${hairClr}"/>`
+    const hairHiL=`<path d="M ${cx-hs*0.5},${cy-hs*0.8} C ${cx-hs*0.2},${cy-hs*0.95} ${cx+hs*0.1},${cy-hs*0.9} ${cx-hs*0.1},${cy-hs*0.7}" fill="none" stroke="${hairHi}" stroke-width="${hs*0.06}" stroke-linecap="round"/>`
+    // Eyes - large anime style with shine
+    const eyLx=cx-hs*0.32, eyRx=cx+hs*0.32, eyY=cy+hs*0.04, eyr=hs*0.18
+    const eyeBg=`<ellipse cx="${eyLx}" cy="${eyY}" rx="${eyr}" ry="${eyr*1.1}" fill="white"/><ellipse cx="${eyRx}" cy="${eyY}" rx="${eyr}" ry="${eyr*1.1}" fill="white"/>`
+    const eyeIris=`<ellipse cx="${eyLx}" cy="${eyY+eyr*0.08}" rx="${eyr*0.7}" ry="${eyr*0.82}" fill="${eyeClr}"/><ellipse cx="${eyRx}" cy="${eyY+eyr*0.08}" rx="${eyr*0.7}" ry="${eyr*0.82}" fill="${eyeClr}"/>`
+    const eyePupil=`<ellipse cx="${eyLx}" cy="${eyY+eyr*0.1}" rx="${eyr*0.38}" ry="${eyr*0.45}" fill="#0a0406"/><ellipse cx="${eyRx}" cy="${eyY+eyr*0.1}" rx="${eyr*0.38}" ry="${eyr*0.45}" fill="#0a0406"/>`
+    const eyeShine=`<ellipse cx="${eyLx-eyr*0.22}" cy="${eyY-eyr*0.22}" rx="${eyr*0.18}" ry="${eyr*0.18}" fill="white"/><ellipse cx="${eyRx-eyr*0.22}" cy="${eyY-eyr*0.22}" rx="${eyr*0.18}" ry="${eyr*0.18}" fill="white"/>`
+    // Eyelashes top
+    const lashL=`<path d="M ${eyLx-eyr},${eyY-eyr*0.9} Q ${eyLx},${eyY-eyr*1.35} ${eyLx+eyr},${eyY-eyr*0.9}" fill="${hairClr}" stroke="${hairClr}" stroke-width="${eyr*0.18}"/>`
+    const lashR=`<path d="M ${eyRx-eyr},${eyY-eyr*0.9} Q ${eyRx},${eyY-eyr*1.35} ${eyRx+eyr},${eyY-eyr*0.9}" fill="${hairClr}" stroke="${hairClr}" stroke-width="${eyr*0.18}"/>`
+    // Eyebrows - neat arched
+    const browL=`<path d="M ${eyLx-eyr*1.1},${eyY-eyr*1.6} Q ${eyLx},${eyY-eyr*1.9} ${eyLx+eyr*0.9},${eyY-eyr*1.5}" fill="none" stroke="${hairClr}" stroke-width="${eyr*0.28}" stroke-linecap="round"/>`
+    const browR=`<path d="M ${eyRx-eyr*0.9},${eyY-eyr*1.5} Q ${eyRx},${eyY-eyr*1.9} ${eyRx+eyr*1.1},${eyY-eyr*1.6}" fill="none" stroke="${hairClr}" stroke-width="${eyr*0.28}" stroke-linecap="round"/>`
+    // Nose - small gentle
+    const noseX=cx, noseY=cy+hs*0.28
+    const nose=`<path d="M ${noseX-hs*0.06},${noseY-hs*0.04} Q ${noseX},${noseY+hs*0.04} ${noseX+hs*0.06},${noseY-hs*0.04}" fill="none" stroke="${lighten(skin,0.72)}" stroke-width="${hs*0.05}" stroke-linecap="round"/>`
+    // Lips - soft smile
+    const lipY=cy+hs*0.46
+    const lips=`<path d="M ${cx-hs*0.22},${lipY} Q ${cx},${lipY+hs*0.12} ${cx+hs*0.22},${lipY}" fill="${lipClr}" stroke="${lipClr}" stroke-width="${hs*0.04}" stroke-linecap="round"/>
+    <path d="M ${cx-hs*0.22},${lipY} Q ${cx},${lipY-hs*0.04} ${cx+hs*0.22},${lipY}" fill="none" stroke="${lighten(lipClr,1.3)}" stroke-width="${hs*0.025}"/>`
+    // Cheek blush
+    const blush=`<ellipse cx="${cx-hs*0.5}" cy="${cy+hs*0.28}" rx="${hs*0.2}" ry="${hs*0.1}" fill="${lipClr}" opacity="0.22"/><ellipse cx="${cx+hs*0.5}" cy="${cy+hs*0.28}" rx="${hs*0.2}" ry="${hs*0.1}" fill="${lipClr}" opacity="0.22"/>`
+    // Chin highlight
+    const chin=`<ellipse cx="${cx}" cy="${cy+hs*0.85}" rx="${hs*0.25}" ry="${hs*0.1}" fill="rgba(255,255,255,0.12)"/>`
+    return hairL+hairR+hairTop+hairHiL+faceOval+blush+eyeBg+eyeIris+eyePupil+eyeShine+lashL+lashR+browL+browR+nose+lips+chin
+  }
 
   function bodyP(sw:number,bw:number,ww:number,hw_:number,tw:number,cw:number,sh:number) {
     const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
@@ -76,8 +116,11 @@ function buildAvatar(result: any, dressB64: string|null): string {
     return `M ${L(sw)},${y_sh} C ${L(sw+8)},${y_sh+22} ${L(bw+5)},${y_bu-16} ${L(bw)},${y_bu} C ${L(bw-6)},${y_bu+26} ${L(ww+4)},${y_wa-14} ${L(ww)},${y_wa} C ${L(ww+5)},${y_wa+20} ${L(hw_-4)},${y_hi-12} ${L(hw_)},${y_hi} C ${L(hw_+2)},${y_hi+30} ${L(hw_+4)},${y_ft-10} ${L(hw_-2)},${y_ft} L ${R(hw_-2)},${y_ft} C ${R(hw_+4)},${y_ft-10} ${R(hw_+2)},${y_hi+30} ${R(hw_)},${y_hi} C ${R(hw_-4)},${y_hi-12} ${R(ww+5)},${y_wa+20} ${R(ww)},${y_wa} C ${R(ww+4)},${y_wa-14} ${R(bw-6)},${y_bu+26} ${R(bw)},${y_bu} C ${R(bw+5)},${y_bu-16} ${R(sw+8)},${y_sh+22} ${R(sw)},${y_sh} Z`
   }
   function armP(s:number,sw:number,sh:number) {
-    const ax=CX+s*sw+sh, ay=y_sh+10, ex=CX+s*(sw+28)+sh, ey=y_sh+102, hx=CX+s*(sw+10)+sh, hy=y_sh+198
-    return `M ${ax},${ay} C ${ax+s*16},${ay+26} ${ex-s*5},${ey-24} ${ex},${ey} C ${ex+s*4},${ey+32} ${hx+s*9},${hy-32} ${hx},${hy}`
+    // Arms hang close to body, elbow slightly out, hand near hip
+    const ax=CX+s*(sw-4)+sh, ay=y_sh+18   // shoulder start — tucked in
+    const ex=CX+s*(sw+14)+sh, ey=y_sh+110  // elbow — slight outward
+    const hx=CX+s*(sw-2)+sh,  hy=y_sh+210  // hand — back near hip
+    return `M ${ax},${ay} C ${ax+s*12},${ay+30} ${ex-s*4},${ey-28} ${ex},${ey} C ${ex+s*3},${ey+36} ${hx+s*8},${hy-34} ${hx},${hy}`
   }
   function neckP(nn:number,sh:number) {
     return `M ${CX-nn+sh},${y_nek+4} C ${CX-nn+2+sh},${y_nek+14} ${CX-nn+2+sh},${y_sh-8} ${CX-nn+3+sh},${y_sh} L ${CX+nn-3+sh},${y_sh} C ${CX+nn-2+sh},${y_sh-8} ${CX+nn-2+sh},${y_nek+14} ${CX+nn+sh},${y_nek+4} Z`
@@ -99,9 +142,9 @@ function buildAvatar(result: any, dressB64: string|null): string {
     : ''
   const sleeveLayer = dressB64
     ? `<path id="la2" d="${initLa}" fill="none" stroke="${skin_mid}" stroke-width="${Math.max(10,arm_w-4)}" stroke-linecap="round"/>
-       <ellipse id="lh2" cx="${CX-sh_w-10}" cy="${y_sh+205}" rx="${ah}" ry="${ah+2}" fill="${skin}"/>
+       <ellipse id="lh2" cx="${CX-sh_w+2}" cy="${y_sh+210}" rx="${ah}" ry="${ah+2}" fill="${skin}"/>
        <path id="ra2" d="${initRa}" fill="none" stroke="${skin_mid}" stroke-width="${Math.max(10,arm_w-4)}" stroke-linecap="round"/>
-       <ellipse id="rh2" cx="${CX+sh_w+10}" cy="${y_sh+205}" rx="${ah}" ry="${ah+2}" fill="${skin}"/>`
+       <ellipse id="rh2" cx="${CX+sh_w-2}" cy="${y_sh+210}" rx="${ah}" ry="${ah+2}" fill="${skin}"/>`
     : ''
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
@@ -119,16 +162,15 @@ ${dressDefs}
 <rect width="${W}" height="${H}" fill="url(#bgG)"/>
 <ellipse cx="${CX}" cy="${y_ft+18}" rx="${hi_w+14}" ry="12" fill="rgba(0,0,0,0.18)" filter="url(#bl)"/>
 <path id="la" d="${initLa}" fill="none" stroke="${skin_mid}" stroke-width="${arm_w}" stroke-linecap="round" opacity="${dressB64?'0':'1'}"/>
-<ellipse id="lh" cx="${CX-sh_w-10}" cy="${y_sh+205}" rx="${ah}" ry="${ah+2}" fill="${skin}" opacity="${dressB64?'0':'1'}"/>
+<ellipse id="lh" cx="${CX-sh_w+2}" cy="${y_sh+210}" rx="${ah}" ry="${ah+2}" fill="${skin}" opacity="${dressB64?'0':'1'}"/>
 <path id="ra" d="${initRa}" fill="none" stroke="${skin_mid}" stroke-width="${arm_w}" stroke-linecap="round" opacity="${dressB64?'0':'1'}"/>
-<ellipse id="rh" cx="${CX+sh_w+10}" cy="${y_sh+205}" rx="${ah}" ry="${ah+2}" fill="${skin}" opacity="${dressB64?'0':'1'}"/>
+<ellipse id="rh" cx="${CX+sh_w-2}" cy="${y_sh+210}" rx="${ah}" ry="${ah+2}" fill="${skin}" opacity="${dressB64?'0':'1'}"/>
 <path id="body" d="${initBd}" fill="url(#bG)" filter="url(#ds)"/>
 <path d="M ${CX},${y_sh+6} C ${CX},${y_bu-6} ${CX},${y_bu+16} ${CX},${y_wa}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="10" stroke-linecap="round"/>
 ${dressLayer}
 ${sleeveLayer}
 <path id="neck" d="${initNk}" fill="${skin_mid}" filter="url(#ds)"/>
-<circle id="head" cx="${CX}" cy="${y_hcy}" r="68" fill="${skin}" filter="url(#ds)"/>
-<image id="face" href="${dbUrl}" x="${CX-82}" y="${y_hcy-88}" width="164" height="164" clip-path="circle(68px at 82px 84px)" preserveAspectRatio="xMidYMid meet"/>
+<g id="faceG" filter="url(#ds)">${faceAt(CX, y_hcy, 68, 0)}</g>
 <ellipse id="lft" cx="${CX-ca_w+4}" cy="${y_ft+6}" rx="${ca_w+5}" ry="7" fill="${lighten(skin,0.55)}"/>
 <ellipse id="rft" cx="${CX+ca_w-4}" cy="${y_ft+6}" rx="${ca_w+5}" ry="7" fill="${lighten(skin,0.55)}"/>
 <text id="vl" x="${CX}" y="${H-5}" text-anchor="middle" font-size="10" font-family="system-ui" fill="rgba(255,255,255,0.18)">FRONT · 0° · ${bodyType}</text>
@@ -182,14 +224,14 @@ function upd(a){
   S('body','d',bodyPath(sw,bw,ww,hw,tw,cw,sh));
   S('neck','d',neckPath(nn,sh));
   S('head','cx',CX+sh);
-  var fi=document.getElementById('face');if(fi){fi.setAttribute('x',CX-82+sh);}
-  O('face',Math.max(0,cosA).toFixed(2));
+  // Face group shifts with body offset
+  var fg=document.getElementById('faceG');if(fg){fg.setAttribute('transform','translate('+sh+',0)');fg.style.opacity=Math.max(0,cosA).toFixed(2);}
   S('lft','cx',CX-cw+4+sh);S('rft','cx',CX+cw-4+sh);
   if(!hasDress){
     var sL=!(a>28&&a<152),sR=!(a>208&&a<332);
     S('la','d',armPath(-1,sw,sh));S('ra','d',armPath(1,sw,sh));
     O('la',sL?'1':'0');O('lh',sL?'1':'0');O('ra',sR?'1':'0');O('rh',sR?'1':'0');
-    S('lh','cx',CX-sw-10+sh);S('rh','cx',CX+sw+10+sh);
+    S('lh','cx',CX-sw+2+sh);S('rh','cx',CX+sw-2+sh);
   }
   if(hasDress){
     // Clip path rotates WITH body silhouette
@@ -206,7 +248,7 @@ function upd(a){
     S('la2','d',armPath(-1,sw,sh));S('ra2','d',armPath(1,sw,sh));
     var sL2=!(a>28&&a<152),sR2=!(a>208&&a<332);
     O('la2',sL2?'0.9':'0');O('lh2',sL2?'0.9':'0');O('ra2',sR2?'0.9':'0');O('rh2',sR2?'0.9':'0');
-    S('lh2','cx',CX-sw-10+sh);S('rh2','cx',CX+sw+10+sh);
+    S('lh2','cx',CX-sw+2+sh);S('rh2','cx',CX+sw-2+sh);
   }
   S('vl','x',CX+sh);
   var vl=document.getElementById('vl');if(vl)vl.textContent=vn(a)+' · '+Math.round(a)+'° · '+BT;
@@ -305,7 +347,7 @@ export default function Home() {
       <div style={{background:'linear-gradient(135deg,#1a0938,#0d0628)',padding:'18px 24px',borderBottom:'1px solid #1e1848',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
         <div>
           <h1 style={{margin:0,fontSize:'1.45rem',fontWeight:800,color:'#e8c99a'}}>👗 3D Fashion Stylist Pro</h1>
-          <p style={{margin:'2px 0 0',color:'#7060a0',fontSize:'0.76rem'}}>AI body analysis · 3D avatar with legs · Virtual try-on · Smart recommendations</p>
+          <p style={{margin:'2px 0 0',color:'#7060a0',fontSize:'0.76rem'}}>AI body analysis · 16 body types · Virtual try-on · Smart recommendations</p>
         </div>
         {result&&<div style={{display:'flex',alignItems:'center',gap:10,background:'#1a1848',border:'1px solid #2e2868',borderRadius:12,padding:'7px 14px'}}>
           <span style={{width:12,height:12,borderRadius:'50%',background:result.skin_hex,border:'1px solid #888',display:'inline-block'}}/>
