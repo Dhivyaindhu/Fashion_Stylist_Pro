@@ -64,49 +64,45 @@ function buildAvatar(result: any, dressB64: string|null): string {
   const skin_mid=lighten(skin,0.84)
 
   const isMen = result.category === 'Men'
-  // ════════════════════════════════════════════════════════════
-  // INLINE SVG FACE — soft kawaii-anime style, NO DiceBear API
-  // No random expressions, no internet dependency, always pretty
-  // ════════════════════════════════════════════════════════════
-  const HC:any={Fair:'#704820',Light:'#3E2010',Medium:'#220C04',Tan:'#140602',Deep:'#060101'}
-  const HS:any={Fair:'#B88030',Light:'#663820',Medium:'#341208',Tan:'#1C0804',Deep:'#0C0402'}
-  const hc=HC[skinTone]||HC.Medium, hs2=HS[skinTone]||HS.Medium
-  const lp=skinTone==='Fair'?'#E07882':skinTone==='Light'?'#C86060':skinTone==='Deep'?'#904848':'#B85050'
-  const ec=skinTone==='Fair'?'#3A2010':skinTone==='Deep'?'#160600':'#220C04'
+  // ── Inline SVG face: soft kawaii style, no external API ─────────────
+  const HC:any={Fair:'#6B4416',Light:'#3C1E0C',Medium:'#200A02',Tan:'#120602',Deep:'#060100'}
+  const HS:any={Fair:'#AA7228',Light:'#5A301A',Medium:'#2E0E06',Tan:'#1A0604',Deep:'#0A0302'}
+  const hc=HC[skinTone]||HC.Medium
+  const hs_=HS[skinTone]||HS.Medium
+  const lp=skinTone==='Fair'?'#E07080':skinTone==='Light'?'#C06060':skinTone==='Deep'?'#924848':'#B85252'
+  const ec=skinTone==='Fair'?'#382010':skinTone==='Deep'?'#140600':'#200C02'
 
-  function drawFace(cx:number,cy:number,r:number,xsh:number):string {
-    const x=cx+xsh, s=r*0.85
-    // ── hair (women: long flowing; men: short top) ──
-    const hTW=`<ellipse cx="${x}" cy="${cy-s*.13}" rx="${s*1.06}" ry="${s*.72}" fill="${hc}"/>`
-    const hLW=`<path d="M ${x-s*.92},${cy-.06*s} C ${x-s*1.22},${cy+s*.44} ${x-s*1.14},${cy+s*.9} ${x-s*.82},${cy+s*1.04} C ${x-s*.70},${cy+s*.74} ${x-s*.72},${cy+s*.34} ${x-s*.88},${cy+s*.04}Z" fill="${hc}"/>`
-    const hRW=`<path d="M ${x+s*.92},${cy-.06*s} C ${x+s*1.22},${cy+s*.44} ${x+s*1.14},${cy+s*.9} ${x+s*.82},${cy+s*1.04} C ${x+s*.70},${cy+s*.74} ${x+s*.72},${cy+s*.34} ${x+s*.88},${cy+s*.04}Z" fill="${hc}"/>`
-    const hHiW=`<path d="M ${x-s*.5},${cy-s*.82} C ${x-s*.16},${cy-s*.98} ${x+s*.14},${cy-s*.92} ${x-s*.06},${cy-s*.70}" fill="none" stroke="${hs2}" stroke-width="${s*.054}" stroke-linecap="round"/>`
-    const hTM=`<ellipse cx="${x}" cy="${cy-s*.60}" rx="${s*1.01}" ry="${s*.52}" fill="${hc}"/>`
-    const hair = isMen ? (hTM) : (hLW+hRW+hTW+hHiW)
-    // ── face oval ──
+  function drawFace(cx:number,cy:number,r:number,xsh:number):string{
+    const x=cx+xsh, s=r*0.86
+    // Hair
+    const hTW=`<ellipse cx="${x}" cy="${cy-s*.13}" rx="${s*1.07}" ry="${s*.72}" fill="${hc}"/>`
+    const hLW=`<path d="M ${x-s*.92},${cy} C ${x-s*1.22},${cy+s*.45} ${x-s*1.14},${cy+s*.90} ${x-s*.82},${cy+s*1.05} C ${x-s*.70},${cy+s*.75} ${x-s*.72},${cy+s*.34} ${x-s*.88},${cy+s*.05}Z" fill="${hc}"/>`
+    const hRW=`<path d="M ${x+s*.92},${cy} C ${x+s*1.22},${cy+s*.45} ${x+s*1.14},${cy+s*.90} ${x+s*.82},${cy+s*1.05} C ${x+s*.70},${cy+s*.75} ${x+s*.72},${cy+s*.34} ${x+s*.88},${cy+s*.05}Z" fill="${hc}"/>`
+    const hHi=`<path d="M ${x-s*.50},${cy-s*.82} C ${x-s*.16},${cy-s*.98} ${x+s*.14},${cy-s*.92} ${x-s*.06},${cy-s*.70}" fill="none" stroke="${hs_}" stroke-width="${s*.055}" stroke-linecap="round"/>`
+    const hTM=`<ellipse cx="${x}" cy="${cy-s*.60}" rx="${s*1.02}" ry="${s*.53}" fill="${hc}"/>`
+    const hair=isMen?(hTM):(hLW+hRW+hTW+hHi)
+    // Face oval (after hair so face sits on top)
     const oval=`<ellipse cx="${x}" cy="${cy}" rx="${s}" ry="${s*1.09}" fill="${skin}"/>`
-    // ── eyes (large, anime-style) ──
-    const er=s*.176, eLx=x-s*.30, eRx=x+s*.30, ey=cy+s*.04
-    const ew=`<ellipse cx="${eLx}" cy="${ey}" rx="${er}" ry="${er*1.10}" fill="white"/><ellipse cx="${eRx}" cy="${ey}" rx="${er}" ry="${er*1.10}" fill="white"/>`
-    const ei=`<ellipse cx="${eLx}" cy="${ey+er*.07}" rx="${er*.67}" ry="${er*.80}" fill="${ec}"/><ellipse cx="${eRx}" cy="${ey+er*.07}" rx="${er*.67}" ry="${er*.80}" fill="${ec}"/>`
-    const ep=`<ellipse cx="${eLx}" cy="${ey+er*.09}" rx="${er*.35}" ry="${er*.42}" fill="#060106"/><ellipse cx="${eRx}" cy="${ey+er*.09}" rx="${er*.35}" ry="${er*.42}" fill="#060106"/>`
-    const esh=`<ellipse cx="${eLx-er*.19}" cy="${ey-er*.19}" rx="${er*.14}" ry="${er*.14}" fill="rgba(255,255,255,.88)"/><ellipse cx="${eRx-er*.19}" cy="${ey-er*.19}" rx="${er*.14}" ry="${er*.14}" fill="rgba(255,255,255,.88)"/>`
-    // lashes women only
-    const lsh=isMen?'':`<path d="M ${eLx-er},${ey-er*.87} Q ${eLx},${ey-er*1.30} ${eLx+er},${ey-er*.87}" fill="${hc}" stroke="${hc}" stroke-width="${er*.15}"/><path d="M ${eRx-er},${ey-er*.87} Q ${eRx},${ey-er*1.30} ${eRx+er},${ey-er*.87}" fill="${hc}" stroke="${hc}" stroke-width="${er*.15}"/>`
-    // ── brows (arched, neat) ──
-    const bw2=isMen?er*.30:er*.22
-    const bl=`<path d="M ${eLx-er*1.09},${ey-er*1.54} Q ${eLx},${ey-er*1.87} ${eLx+er*.88},${ey-er*1.46}" fill="none" stroke="${hc}" stroke-width="${bw2}" stroke-linecap="round"/>`
-    const br=`<path d="M ${eRx-er*.88},${ey-er*1.46} Q ${eRx},${ey-er*1.87} ${eRx+er*1.09},${ey-er*1.54}" fill="none" stroke="${hc}" stroke-width="${bw2}" stroke-linecap="round"/>`
-    // ── nose (subtle) ──
-    const ny=cy+s*.28
+    // Eyes
+    const er=s*.174, eLx=x-s*.295, eRx=x+s*.295, ey=cy+s*.04
+    const eW=`<ellipse cx="${eLx}" cy="${ey}" rx="${er}" ry="${er*1.09}" fill="white"/><ellipse cx="${eRx}" cy="${ey}" rx="${er}" ry="${er*1.09}" fill="white"/>`
+    const eI=`<ellipse cx="${eLx}" cy="${ey+er*.07}" rx="${er*.66}" ry="${er*.79}" fill="${ec}"/><ellipse cx="${eRx}" cy="${ey+er*.07}" rx="${er*.66}" ry="${er*.79}" fill="${ec}"/>`
+    const eP=`<ellipse cx="${eLx}" cy="${ey+er*.09}" rx="${er*.34}" ry="${er*.41}" fill="#050106"/><ellipse cx="${eRx}" cy="${ey+er*.09}" rx="${er*.34}" ry="${er*.41}" fill="#050106"/>`
+    const eSh=`<ellipse cx="${eLx-er*.18}" cy="${ey-er*.18}" rx="${er*.13}" ry="${er*.13}" fill="rgba(255,255,255,.86)"/><ellipse cx="${eRx-er*.18}" cy="${ey-er*.18}" rx="${er*.13}" ry="${er*.13}" fill="rgba(255,255,255,.86)"/>`
+    const lsh=isMen?'': `<path d="M ${eLx-er},${ey-er*.86} Q ${eLx},${ey-er*1.30} ${eLx+er},${ey-er*.86}" fill="${hc}" stroke="${hc}" stroke-width="${er*.15}"/><path d="M ${eRx-er},${ey-er*.86} Q ${eRx},${ey-er*1.30} ${eRx+er},${ey-er*.86}" fill="${hc}" stroke="${hc}" stroke-width="${er*.15}"/>`
+    const bW=isMen?er*.30:er*.21
+    const bL=`<path d="M ${eLx-er*1.09},${ey-er*1.55} Q ${eLx},${ey-er*1.87} ${eLx+er*.87},${ey-er*1.46}" fill="none" stroke="${hc}" stroke-width="${bW}" stroke-linecap="round"/>`
+    const bR=`<path d="M ${eRx-er*.87},${ey-er*1.46} Q ${eRx},${ey-er*1.87} ${eRx+er*1.09},${ey-er*1.55}" fill="none" stroke="${hc}" stroke-width="${bW}" stroke-linecap="round"/>`
+    // Nose
+    const ny=cy+s*.27
     const ns=`<path d="M ${x-s*.065},${ny-s*.04} Q ${x},${ny+s*.05} ${x+s*.065},${ny-s*.04}" fill="none" stroke="${lighten(skin,.70)}" stroke-width="${s*.042}" stroke-linecap="round"/>`
-    // ── mouth: gentle upward smile ──
+    // Mouth — gentle upward curve = always smiling
     const my=cy+s*.46
-    const mt=`<path d="M ${x-s*.20},${my} Q ${x},${my+s*.14} ${x+s*.20},${my}" fill="${lp}" stroke="${lp}" stroke-width="${s*.036}" stroke-linecap="round"/>
-    <path d="M ${x-s*.20},${my} Q ${x},${my-s*.03} ${x+s*.20},${my}" fill="none" stroke="${lighten(lp,1.28)}" stroke-width="${s*.020}"/>`
-    // ── blush dots (women) ──
-    const bl2=isMen?'':`<ellipse cx="${x-s*.46}" cy="${cy+s*.27}" rx="${s*.18}" ry="${s*.09}" fill="${lp}" opacity=".17"/><ellipse cx="${x+s*.46}" cy="${cy+s*.27}" rx="${s*.18}" ry="${s*.09}" fill="${lp}" opacity=".17"/>`
-    return hair+oval+bl2+ew+ei+ep+esh+lsh+bl+br+ns+mt
+    const mt=`<path d="M ${x-s*.195},${my} Q ${x},${my+s*.14} ${x+s*.195},${my}" fill="${lp}" stroke="${lp}" stroke-width="${s*.036}" stroke-linecap="round"/>
+    <path d="M ${x-s*.195},${my} Q ${x},${my-s*.03} ${x+s*.195},${my}" fill="none" stroke="${lighten(lp,1.28)}" stroke-width="${s*.02}"/>`
+    // Blush (women only)
+    const blush=isMen?'':`<ellipse cx="${x-s*.46}" cy="${cy+s*.27}" rx="${s*.17}" ry="${s*.09}" fill="${lp}" opacity=".17"/><ellipse cx="${x+s*.46}" cy="${cy+s*.27}" rx="${s*.17}" ry="${s*.09}" fill="${lp}" opacity=".17"/>`
+    return hair+oval+blush+eW+eI+eP+eSh+lsh+bL+bR+ns+mt
   }
 
   function bodyP(sw:number,bw:number,ww:number,hw_:number,tw:number,cw:number,sh:number) {
