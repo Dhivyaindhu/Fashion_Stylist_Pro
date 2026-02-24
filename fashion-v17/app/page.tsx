@@ -63,29 +63,45 @@ function buildAvatar(result: any, dressB64: string|null): string {
   const skin_sh=lighten(skin,0.68), skin_hi=lighten(skin,1.32)
   const skin_mid=lighten(skin,0.84)
 
-  const SKINS:any = {Fair:{ds:'f8d5c2',h:'b8860b'},Light:{ds:'e8b89a',h:'4a3728'},Medium:{ds:'c68642',h:'2d1b0e'},Tan:{ds:'a0522d',h:'1a0f0a'},Deep:{ds:'4a2912',h:'0a0505'}}
-  const pal = SKINS[skinTone]||SKINS.Medium
-  // Avatar face: personas for Women/Kids, big-ears for Men
-  // big-ears = gender-neutral clean cartoon, no random flower crowns
-  const personasSkin: Record<string,string> = {
-    Fair:'ecru', Light:'apricot', Medium:'bronze', Tan:'copper', Deep:'sepia'
-  }
-  const bigearsSkin: Record<string,string> = {
-    Fair:'f8d5c2', Light:'e8b89a', Medium:'c68642', Tan:'a0522d', Deep:'4a2912'
-  }
-  const personasHair: Record<string,string> = {
-    Fair:'2c1b18', Light:'3d2314', Medium:'1c0d00', Tan:'0d0500', Deep:'080200'
-  }
-  const skinParam  = personasSkin[skinTone] || 'bronze'
-  const hairParam  = personasHair[skinTone] || '1c0d00'
-  const beSkin     = bigearsSkin[skinTone]  || 'c68642'
-
-  // Men: big-ears-neutral = clean, no accessory randomness
-  // Women/Kids: personas = warm expressive faces
   const isMen = result.category === 'Men'
-  const dbUrl = isMen
-    ? `https://api.dicebear.com/9.x/big-ears-neutral/svg?seed=${skinTone}${bodyType}&backgroundColor=transparent&scale=115`
-    : `https://api.dicebear.com/9.x/personas/svg?seed=${skinTone}${bodyType}&skinColor=${skinParam}&hairColor=${hairParam}&backgroundColor=transparent&scale=110`
+  // ── Inline SVG face: soft style, always smiling, no external API ────
+  const HC:any={Fair:'#6B4416',Light:'#3C1E0C',Medium:'#200A02',Tan:'#120602',Deep:'#060100'}
+  const HS:any={Fair:'#AA7228',Light:'#5A301A',Medium:'#2E0E06',Tan:'#1A0604',Deep:'#0A0302'}
+  const hc=HC[skinTone]||HC.Medium, hs_=HS[skinTone]||HS.Medium
+  const lp=skinTone==='Fair'?'#E07080':skinTone==='Light'?'#C06060':skinTone==='Deep'?'#924848':'#B85252'
+  const ec=skinTone==='Fair'?'#382010':skinTone==='Deep'?'#140600':'#200C02'
+
+  function drawFace(cx:number,cy:number,r:number,xsh:number):string{
+    const x=cx+xsh, s=r*0.86
+    // hair
+    const hTW=`<ellipse cx="${x}" cy="${cy-s*.13}" rx="${s*1.07}" ry="${s*.72}" fill="${hc}"/>`
+    const hLW=`<path d="M ${x-s*.92},${cy} C ${x-s*1.22},${cy+s*.45} ${x-s*1.14},${cy+s*.90} ${x-s*.82},${cy+s*1.05} C ${x-s*.70},${cy+s*.75} ${x-s*.72},${cy+s*.34} ${x-s*.88},${cy+s*.05}Z" fill="${hc}"/>`
+    const hRW=`<path d="M ${x+s*.92},${cy} C ${x+s*1.22},${cy+s*.45} ${x+s*1.14},${cy+s*.90} ${x+s*.82},${cy+s*1.05} C ${x+s*.70},${cy+s*.75} ${x+s*.72},${cy+s*.34} ${x+s*.88},${cy+s*.05}Z" fill="${hc}"/>`
+    const hHi=`<path d="M ${x-s*.50},${cy-s*.82} C ${x-s*.16},${cy-s*.98} ${x+s*.14},${cy-s*.92} ${x-s*.06},${cy-s*.70}" fill="none" stroke="${hs_}" stroke-width="${s*.055}" stroke-linecap="round"/>`
+    const hTM=`<ellipse cx="${x}" cy="${cy-s*.60}" rx="${s*1.02}" ry="${s*.53}" fill="${hc}"/>`
+    const hair=isMen?(hTM):(hLW+hRW+hTW+hHi)
+    // face
+    const oval=`<ellipse cx="${x}" cy="${cy}" rx="${s}" ry="${s*1.09}" fill="${skin}"/>`
+    // eyes
+    const er=s*.174, eLx=x-s*.295, eRx=x+s*.295, ey=cy+s*.04
+    const eW=`<ellipse cx="${eLx}" cy="${ey}" rx="${er}" ry="${er*1.09}" fill="white"/><ellipse cx="${eRx}" cy="${ey}" rx="${er}" ry="${er*1.09}" fill="white"/>`
+    const eI=`<ellipse cx="${eLx}" cy="${ey+er*.07}" rx="${er*.66}" ry="${er*.79}" fill="${ec}"/><ellipse cx="${eRx}" cy="${ey+er*.07}" rx="${er*.66}" ry="${er*.79}" fill="${ec}"/>`
+    const eP=`<ellipse cx="${eLx}" cy="${ey+er*.09}" rx="${er*.34}" ry="${er*.41}" fill="#050106"/><ellipse cx="${eRx}" cy="${ey+er*.09}" rx="${er*.34}" ry="${er*.41}" fill="#050106"/>`
+    const eSh=`<ellipse cx="${eLx-er*.18}" cy="${ey-er*.18}" rx="${er*.13}" ry="${er*.13}" fill="rgba(255,255,255,.86)"/><ellipse cx="${eRx-er*.18}" cy="${ey-er*.18}" rx="${er*.13}" ry="${er*.13}" fill="rgba(255,255,255,.86)"/>`
+    const lsh=isMen?'':`<path d="M ${eLx-er},${ey-er*.86} Q ${eLx},${ey-er*1.30} ${eLx+er},${ey-er*.86}" fill="${hc}" stroke="${hc}" stroke-width="${er*.15}"/><path d="M ${eRx-er},${ey-er*.86} Q ${eRx},${ey-er*1.30} ${eRx+er},${ey-er*.86}" fill="${hc}" stroke="${hc}" stroke-width="${er*.15}"/>`
+    const bW=isMen?er*.30:er*.21
+    const bL=`<path d="M ${eLx-er*1.09},${ey-er*1.55} Q ${eLx},${ey-er*1.87} ${eLx+er*.87},${ey-er*1.46}" fill="none" stroke="${hc}" stroke-width="${bW}" stroke-linecap="round"/>`
+    const bR=`<path d="M ${eRx-er*.87},${ey-er*1.46} Q ${eRx},${ey-er*1.87} ${eRx+er*1.09},${ey-er*1.55}" fill="none" stroke="${hc}" stroke-width="${bW}" stroke-linecap="round"/>`
+    // nose
+    const ny=cy+s*.27
+    const ns=`<path d="M ${x-s*.065},${ny-s*.04} Q ${x},${ny+s*.05} ${x+s*.065},${ny-s*.04}" fill="none" stroke="${lighten(skin,.70)}" stroke-width="${s*.042}" stroke-linecap="round"/>`
+    // mouth — always smiling upward
+    const my=cy+s*.46
+    const mt=`<path d="M ${x-s*.195},${my} Q ${x},${my+s*.14} ${x+s*.195},${my}" fill="${lp}" stroke="${lp}" stroke-width="${s*.036}" stroke-linecap="round"/>
+    <path d="M ${x-s*.195},${my} Q ${x},${my-s*.03} ${x+s*.195},${my}" fill="none" stroke="${lighten(lp,1.28)}" stroke-width="${s*.02}"/>`
+    const blush=isMen?'':`<ellipse cx="${x-s*.46}" cy="${cy+s*.27}" rx="${s*.17}" ry="${s*.09}" fill="${lp}" opacity=".17"/><ellipse cx="${x+s*.46}" cy="${cy+s*.27}" rx="${s*.17}" ry="${s*.09}" fill="${lp}" opacity=".17"/>`
+    return hair+oval+blush+eW+eI+eP+eSh+lsh+bL+bR+ns+mt
+  }
 
   function bodyP(sw:number,bw:number,ww:number,hw_:number,tw:number,cw:number,sh:number) {
     const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
@@ -150,8 +166,7 @@ ${dressDefs}
 ${dressLayer}
 ${sleeveLayer}
 <path id="neck" d="${initNk}" fill="${skin_mid}" filter="url(#ds)"/>
-<circle id="head" cx="${CX}" cy="${y_hcy}" r="68" fill="${skin}" filter="url(#ds)"/>
-<image id="face" href="${dbUrl}" x="${CX-82}" y="${y_hcy-88}" width="164" height="164" clip-path="circle(68px at 82px 84px)" preserveAspectRatio="xMidYMid meet"/>
+<g id="faceG" filter="url(#ds)">${drawFace(CX,y_hcy,68,0)}</g>
 <ellipse id="lft" cx="${CX-ca_w+4}" cy="${y_ft+6}" rx="${ca_w+5}" ry="7" fill="${lighten(skin,0.55)}"/>
 <ellipse id="rft" cx="${CX+ca_w-4}" cy="${y_ft+6}" rx="${ca_w+5}" ry="7" fill="${lighten(skin,0.55)}"/>
 <text id="vl" x="${CX}" y="${H-5}" text-anchor="middle" font-size="10" font-family="system-ui" fill="rgba(255,255,255,0.18)">FRONT · 0° · ${bodyType}</text>
@@ -207,9 +222,8 @@ function upd(a){
   var nn=Math.max(5,Math.round(NW*wS)),aw=Math.round(ARW*wS),ah2=Math.round(aw/2);
   S('body','d',bodyPath(sw,bw,ww,hw,tw,cw,sh));
   S('neck','d',neckPath(nn,sh));
-  S('head','cx',CX+sh);
-  var fi=document.getElementById('face');if(fi){fi.setAttribute('x',CX-82+sh);}
-  O('face',Math.max(0,cosA).toFixed(2));
+  var fg=document.getElementById('faceG');
+  if(fg){fg.setAttribute('transform','translate('+sh+',0)');fg.style.opacity=Math.max(0,cosA).toFixed(2);}
   S('lft','cx',CX-cw+4+sh);S('rft','cx',CX+cw-4+sh);
   if(!hasDress){
     var sL=!(a>28&&a<152),sR=!(a>208&&a<332);
@@ -387,6 +401,8 @@ export default function Home() {
                   {visImg&&<img src={visImg} alt="detection" style={{width:'100%',borderRadius:12,border:'1px solid #2a2860',maxHeight:260,objectFit:'contain',background:'#000'}}/>}
                   <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:14,padding:16}}>
                     <div style={{color:'#e8c99a',fontWeight:800,marginBottom:6}}>{result.body_icon} {result.body_type} <span style={{marginLeft:8,background:'#2a1f60',padding:'2px 10px',borderRadius:6,fontSize:14}}>{result.size}</span></div>
+                    {result.clothing_type==='Saree/Draped'&&<div style={{background:'rgba(255,200,0,.13)',border:'1px solid #ffcc0044',borderRadius:6,padding:'3px 10px',fontSize:11,color:'#ffcc00',marginBottom:6,display:'inline-block'}}>🥻 Draped clothing — measurements adjusted</div>}
+                    {result.method&&<div style={{color:'#404080',fontSize:10,marginBottom:4}}>{result.method} · {result.confidence}% confidence</div>}
                     <div style={{color:'#6050a0',fontSize:12,marginBottom:12}}>{result.body_desc}</div>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
                       {[['Shoulder',result.shoulder_cm],['Bust',result.bust_cm],['Waist',result.waist_cm],['Hip',result.hip_cm],['Height',result.height_cm],['Inseam',result.inseam_cm]].map(([k,v])=>(
