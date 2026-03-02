@@ -2,18 +2,51 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 
 /* ═══════════════════════════════════════════════════════════════════
-   Fashion Stylist Pro v38 — FIXED AVATAR + ACCURATE MEASUREMENTS
+   Fashion Stylist Pro v38 — FIXED BUILD ERRORS
    ─────────────────────────────────────────────────────────────────
-   FIX 1 · 3D AVATAR    → Full user photo spins 360° (CSS 3D card)
-                          NOT mannequin + face — the whole photo rotates
-   FIX 2 · ANALYSIS     → Uses backend y_frac for exact line positions
-                          Lines land on the actual BUST/WAIST/HIP zones
-   FIX 3 · PHOTO TRY-ON → Upload a NEW dress (not person's own dress)
-                          Dress removed from person, new dress applied
-   FIX 4 · AVATAR DRESS → Try-on result replaces avatar photo
+   FIX 1: Added proper TypeScript types
+   FIX 2: Fixed PhotoAvatar props interface
+   FIX 3: Fixed result type definitions
+   FIX 4: Fixed array type issues
    ═══════════════════════════════════════════════════════════════════ */
 
 const BACKEND_URL = 'https://indhu321-fashion-stylist-app.hf.space'
+
+// ── Type definitions ─────────────────────────────────────────────
+interface AnalysisResult {
+  size: string
+  body_type: string
+  skin_tone: string
+  skin_hex: string
+  method: string
+  confidence: number
+  height_cm: number
+  shoulder_cm: number
+  bust_cm: number
+  waist_cm: number
+  high_hip_cm: number
+  hip_cm: number
+  hollow_to_hem_cm?: number
+  inseam_cm: number
+  best_colors: string[]
+  avoid_colors: string[]
+  measurement_lines?: Array<{
+    label: string
+    y_frac: number
+    value: number
+    val?: number
+    color?: string
+  }>
+}
+
+interface ProductItem {
+  name: string
+  body: string[]
+  colors: string[]
+  sizes: string[]
+  amazon: string
+  flipkart: string
+}
 
 // ── Colour hex lookup ────────────────────────────────────────────
 const COLOR_HEX: Record<string,string> = {
@@ -49,7 +82,7 @@ const BODY_DATA: Record<string,{icon:string,desc:string,shape:string,tips:string
 }
 
 // ── Dress products ───────────────────────────────────────────────
-const PRODUCTS: Record<string,any[]> = {
+const PRODUCTS: Record<string,ProductItem[]> = {
   Women:[
     {name:"Floral Wrap Dress",body:["Hourglass","Full Hourglass","Rectangle"],colors:["Pastel Pink","Lavender","Blush Rose"],sizes:["XS","S","M","L","XL"],amazon:"https://www.amazon.in/s?k=women+floral+wrap+dress",flipkart:"https://www.flipkart.com/search?q=women+floral+wrap+dress"},
     {name:"A-Line Ethnic Kurta",body:["Pear","Apple","Rectangle"],colors:["Royal Blue","Mint Green","Coral"],sizes:["S","M","L","XL","XXL"],amazon:"https://www.amazon.in/s?k=women+a-line+kurta",flipkart:"https://www.flipkart.com/search?q=women+a+line+kurta"},
@@ -74,24 +107,25 @@ const PRODUCTS: Record<string,any[]> = {
 
 /* ════════════════════════════════════════════════════════════════
    CSS 3D PHOTO AVATAR — Full user photo spinning 360°
-   The WHOLE photo rotates, not just the face on a mannequin!
    ════════════════════════════════════════════════════════════════ */
-function PhotoAvatar({ photoUrl, tryOnUrl }: { photoUrl: string|null, tryOnUrl: string|null }) {
+function PhotoAvatar({ photoUrl, tryOnUrl }: { photoUrl: string | null; tryOnUrl: string | null }) {
   const [angle, setAngle] = useState(0)
   const [spinning, setSpinning] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const dragStartX = useRef<number|null>(null)
+  const dragStartX = useRef<number | null>(null)
   const dragStartAngle = useRef(0)
-  const rafRef = useRef<number|null>(null)
+  const rafRef = useRef<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const displayUrl = tryOnUrl || photoUrl
 
   const normalizeAngle = (a: number) => ((a % 360) + 360) % 360
 
-  // Drag to rotate
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (spinning) { setSpinning(false); if(rafRef.current) cancelAnimationFrame(rafRef.current) }
+    if (spinning) { 
+      setSpinning(false)
+      if(rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
     dragStartX.current = e.clientX
     dragStartAngle.current = angle
     setIsDragging(true)
@@ -147,12 +181,11 @@ function PhotoAvatar({ photoUrl, tryOnUrl }: { photoUrl: string|null, tryOnUrl: 
 
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }, [])
 
-  // 3D projection: compress width at side views, shift at 45° angles
   const rad = angle * Math.PI / 180
   const cosA = Math.cos(rad)
   const scaleX = Math.abs(cosA) * 0.85 + 0.15
-  const isMirrored = cosA < 0          // back face = mirror
-  const brightness = 0.65 + Math.abs(cosA) * 0.35  // darker at side view
+  const isMirrored = cosA < 0
+  const brightness = 0.65 + Math.abs(cosA) * 0.35
 
   const viewLabel = (() => {
     const a = normalizeAngle(angle)
@@ -177,7 +210,6 @@ function PhotoAvatar({ photoUrl, tryOnUrl }: { photoUrl: string|null, tryOnUrl: 
 
   return (
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:10,userSelect:'none'}}>
-      {/* 3D spinning photo */}
       <div
         ref={containerRef}
         onPointerDown={handlePointerDown}
@@ -214,23 +246,19 @@ function PhotoAvatar({ photoUrl, tryOnUrl }: { photoUrl: string|null, tryOnUrl: 
             }}
           />
         </div>
-        {/* Try-on badge */}
         {tryOnUrl && (
           <div style={{position:'absolute',top:10,left:10,background:'rgba(91,33,182,0.9)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:8,letterSpacing:0.5}}>
             ✨ TRY-ON ACTIVE
           </div>
         )}
-        {/* Angle label */}
         <div style={{position:'absolute',bottom:8,left:'50%',transform:'translateX(-50%)',background:'rgba(0,0,0,0.6)',color:'rgba(180,160,255,0.7)',fontSize:10,padding:'2px 8px',borderRadius:6,whiteSpace:'nowrap'}}>
           {viewLabel} · {Math.round(normalizeAngle(angle))}°
         </div>
-        {/* Side-view darkening overlay */}
         {scaleX < 0.5 && (
           <div style={{position:'absolute',inset:0,background:'rgba(4,4,14,0.6)',borderRadius:14,pointerEvents:'none'}} />
         )}
       </div>
 
-      {/* Rotation controls */}
       <div style={{display:'flex',gap:5,flexWrap:'wrap',justifyContent:'center'}}>
         {([['⬆ Front',0],['➡ Right',90],['⬇ Back',180],['⬅ Left',270]] as [string,number][]).map(([lbl,deg]) => (
           <button key={deg} onClick={()=>snapTo(deg)} style={{
@@ -246,7 +274,6 @@ function PhotoAvatar({ photoUrl, tryOnUrl }: { photoUrl: string|null, tryOnUrl: 
         }}>{spinning ? '⏸ Stop' : '▶ Spin'}</button>
       </div>
 
-      {/* Drag hint */}
       <div style={{color:'#2a2050',fontSize:10,textAlign:'center'}}>
         ← Drag to rotate · Scroll buttons to snap →
       </div>
@@ -255,16 +282,14 @@ function PhotoAvatar({ photoUrl, tryOnUrl }: { photoUrl: string|null, tryOnUrl: 
 }
 
 /* ════════════════════════════════════════════════════════════════
-   ANALYSIS VIEW — Uses backend y_frac for EXACT line positions
+   ANALYSIS VIEW
    ════════════════════════════════════════════════════════════════ */
-function AnalysisView({ result, photoUrl }: { result: any, photoUrl: string|null }) {
+function AnalysisView({ result, photoUrl }: { result: AnalysisResult; photoUrl: string | null }) {
   const m = result
   const bd = BODY_DATA[m.body_type] || BODY_DATA['Rectangle']
 
-  // PRIORITY: use backend measurement_lines (y_frac = exact pixel position)
-  // FALLBACK: use Olivia Paisley guide percentages if backend didn't return lines
   const mLines = (m.measurement_lines && m.measurement_lines.length > 0)
-    ? m.measurement_lines.map((l: any) => ({
+    ? m.measurement_lines.map((l) => ({
         label: l.label,
         yPct: Math.round(l.y_frac * 100),
         val:  l.val || l.value,
@@ -279,7 +304,6 @@ function AnalysisView({ result, photoUrl }: { result: any, photoUrl: string|null
 
   return (
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16}}>
-      {/* Photo with measurement overlays */}
       <div style={{position:'relative',borderRadius:16,overflow:'hidden',background:'#000',minHeight:400}}>
         {photoUrl ? (
           <img
@@ -292,7 +316,7 @@ function AnalysisView({ result, photoUrl }: { result: any, photoUrl: string|null
             Photo not available
           </div>
         )}
-        {photoUrl && mLines.map((l, i) => (
+        {photoUrl && mLines.map((l) => (
           <div key={l.label} style={{
             position:'absolute',
             left:'2%',right:'2%',
@@ -313,12 +337,10 @@ function AnalysisView({ result, photoUrl }: { result: any, photoUrl: string|null
             }}>{typeof l.val === 'number' ? `${l.val.toFixed(0)}cm` : `${l.val}cm`}</span>
           </div>
         ))}
-        {/* Size + body type badge */}
         <div style={{position:'absolute',top:10,left:10,background:'rgba(10,6,30,0.90)',border:'1px solid rgba(139,92,246,0.5)',borderRadius:8,padding:'4px 10px',display:'flex',gap:6,alignItems:'center'}}>
           <span style={{color:'#ffd700',fontWeight:800,fontSize:14}}>{m.size}</span>
           <span style={{color:'#8060c0',fontSize:11}}>{bd.icon} {m.body_type}</span>
         </div>
-        {/* Method label */}
         {m.method && (
           <div style={{position:'absolute',bottom:8,right:8,background:'rgba(0,0,0,0.6)',color:'rgba(140,120,220,0.7)',fontSize:8,padding:'2px 6px',borderRadius:4}}>
             {m.method} · {m.confidence}%
@@ -326,7 +348,6 @@ function AnalysisView({ result, photoUrl }: { result: any, photoUrl: string|null
         )}
       </div>
 
-      {/* Body type card + measurements */}
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
         <div style={{background:'#0c0c28',border:'1px solid #1a1848',borderRadius:14,padding:16}}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
@@ -351,7 +372,6 @@ function AnalysisView({ result, photoUrl }: { result: any, photoUrl: string|null
           </div>
         </div>
 
-        {/* Measurements grid */}
         <div style={{background:'#0c0c28',border:'1px solid #1a1848',borderRadius:14,padding:14}}>
           <div style={{color:'#e8c99a',fontWeight:700,fontSize:12,marginBottom:10}}>📏 Measurements</div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:6}}>
@@ -362,11 +382,11 @@ function AnalysisView({ result, photoUrl }: { result: any, photoUrl: string|null
               ['High Hip', m.high_hip_cm,'#ff80ff'],
               ['Low Hip',  m.hip_cm,      '#a080ff'],
               ['Height',   m.height_cm,  '#c0c0ff'],
-            ] as [string,any,string][]).map(([k,v,c]) => (
+            ] as const).map(([k,v,c]) => (
               <div key={k} style={{background:'#06061a',border:`1px solid ${c}22`,borderRadius:8,padding:'8px 10px'}}>
                 <div style={{color:'#303060',fontSize:9,textTransform:'uppercase',letterSpacing:0.8,marginBottom:2}}>{k}</div>
                 <div style={{color:c,fontWeight:800,fontSize:15}}>
-                  {v ? parseFloat(v).toFixed(0) : '—'}
+                  {v ? parseFloat(String(v)).toFixed(0) : '—'}
                   <span style={{fontSize:9,color:'#303060',marginLeft:2}}>cm</span>
                 </div>
               </div>
@@ -374,7 +394,6 @@ function AnalysisView({ result, photoUrl }: { result: any, photoUrl: string|null
           </div>
         </div>
 
-        {/* Saree style tip */}
         {bd.sareeStyle && (
           <div style={{background:'#0c0c28',border:'1px solid #251548',borderRadius:12,padding:12}}>
             <div style={{color:'#a78bfa',fontWeight:700,fontSize:11,marginBottom:5}}>🥻 Saree Drape Tip</div>
@@ -389,7 +408,7 @@ function AnalysisView({ result, photoUrl }: { result: any, photoUrl: string|null
 /* ════════════════════════════════════════════════════════════════
    COLOURS TAB
    ════════════════════════════════════════════════════════════════ */
-function ColoursTab({ result }: { result: any }) {
+function ColoursTab({ result }: { result: AnalysisResult }) {
   const st  = result.skin_tone || 'Medium'
   const bt  = result.body_type || 'Rectangle'
   const pal = SKIN_PALETTES[st] || SKIN_PALETTES['Medium']
@@ -450,15 +469,15 @@ function ColoursTab({ result }: { result: any }) {
 /* ════════════════════════════════════════════════════════════════
    SHOP TAB
    ════════════════════════════════════════════════════════════════ */
-function ShopTab({ result, category }: { result: any, category: string }) {
+function ShopTab({ result, category }: { result: AnalysisResult; category: string }) {
   const bt   = result.body_type
   const size = result.size
   const best = new Set(result.best_colors || [])
   const all  = PRODUCTS[category] || PRODUCTS.Women
 
-  const t1 = all.filter((p:any)=>p.body.includes(bt)&&p.sizes.includes(size)&&p.colors.some((c:string)=>best.has(c)))
-  const t2 = all.filter((p:any)=>p.body.includes(bt)&&p.sizes.includes(size)&&!t1.includes(p))
-  const t3 = all.filter((p:any)=>p.body.includes(bt)&&!t1.includes(p)&&!t2.includes(p))
+  const t1 = all.filter((p)=>p.body.includes(bt)&&p.sizes.includes(size)&&p.colors.some((c)=>best.has(c)))
+  const t2 = all.filter((p)=>p.body.includes(bt)&&p.sizes.includes(size)&&!t1.includes(p))
+  const t3 = all.filter((p)=>p.body.includes(bt)&&!t1.includes(p)&&!t2.includes(p))
   const matched = [...t1,...t2,...t3].length ? [...t1,...t2,...t3] : all
 
   const bd = BODY_DATA[bt] || BODY_DATA['Rectangle']
@@ -476,8 +495,8 @@ function ShopTab({ result, category }: { result: any, category: string }) {
       </div>
 
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:12}}>
-        {matched.map((p:any) => {
-          const mc = p.colors.filter((c:string)=>best.has(c))
+        {matched.map((p) => {
+          const mc = p.colors.filter((c)=>best.has(c))
           const showColors = mc.length ? mc : p.colors.slice(0,3)
           const isPerfect = t1.includes(p)
           return (
@@ -485,7 +504,7 @@ function ShopTab({ result, category }: { result: any, category: string }) {
               {isPerfect && <div style={{position:'absolute',top:-8,right:10,background:'#5b21b6',color:'#fff',fontSize:9,fontWeight:800,padding:'2px 8px',borderRadius:10,letterSpacing:0.5}}>PERFECT MATCH</div>}
               <div style={{color:'#e8c99a',fontWeight:700,fontSize:14,marginBottom:6}}>{p.name}</div>
               <div style={{display:'flex',gap:4,marginBottom:8,flexWrap:'wrap'}}>
-                {showColors.map((c:string)=>(
+                {showColors.map((c)=>(
                   <span key={c} style={{display:'inline-flex',alignItems:'center',gap:3,background:'#141440',color:'#9080c0',border:'1px solid #202060',borderRadius:8,padding:'2px 7px',fontSize:11}}>
                     <span style={{width:7,height:7,borderRadius:'50%',background:COLOR_HEX[c]||'#888',display:'inline-block',border:'1px solid rgba(255,255,255,0.1)'}}/>
                     {c}
@@ -512,15 +531,15 @@ export default function Home() {
   const [step,          setStep]         = useState<'upload'|'result'>('upload')
   const [loading,       setLoading]      = useState(false)
   const [error,         setError]        = useState('')
-  const [result,        setResult]       = useState<any>(null)
-  const [photoUrl,      setPhotoUrl]     = useState<string|null>(null)
-  const [preview,       setPreview]      = useState<string|null>(null)
+  const [result,        setResult]       = useState<AnalysisResult | null>(null)
+  const [photoUrl,      setPhotoUrl]     = useState<string | null>(null)
+  const [preview,       setPreview]      = useState<string | null>(null)
   const [category,      setCategory]     = useState('Women')
   const [userHeight,    setUserHeight]   = useState('')
-  const [dressB64,      setDressB64]     = useState<string|null>(null)
-  const [dressPreview,  setDressPreview] = useState<string|null>(null)
+  const [dressB64,      setDressB64]     = useState<string | null>(null)
+  const [dressPreview,  setDressPreview] = useState<string | null>(null)
   const [dressLoading,  setDressLoading] = useState(false)
-  const [tryOnUrl,      setTryOnUrl]     = useState<string|null>(null)
+  const [tryOnUrl,      setTryOnUrl]     = useState<string | null>(null)
   const [activeTab,     setActiveTab]    = useState<'avatar'|'tryon'|'analysis'|'colours'|'shop'>('avatar')
   const [tryOnStatus,   setTryOnStatus]  = useState('')
 
@@ -542,8 +561,8 @@ export default function Home() {
       if (data.error) { setError(data.error); setLoading(false); return }
       setResult(data)
       setStep('result')
-    } catch(e: any) {
-      setError(e.message)
+    } catch(e: unknown) {
+      setError(e instanceof Error ? e.message : 'Unknown error')
     }
     setLoading(false)
   }
@@ -558,9 +577,9 @@ export default function Home() {
       if (!data.error && data.dress_b64) {
         setDressB64(data.dress_b64)
         setDressPreview(`data:image/png;base64,${data.dress_b64}`)
-        setTryOnUrl(null) // reset previous try-on
+        setTryOnUrl(null)
       }
-    } catch(e: any) {
+    } catch(e: unknown) {
       console.error('Dress extract failed:', e)
     }
     setDressLoading(false)
@@ -586,8 +605,8 @@ export default function Home() {
       } else {
         setTryOnStatus('❌ Try-on failed — try a different dress image')
       }
-    } catch(e: any) {
-      setTryOnStatus(`❌ Error: ${e.message}`)
+    } catch(e: unknown) {
+      setTryOnStatus(`❌ Error: ${e instanceof Error ? e.message : 'Unknown error'}`)
     }
     setDressLoading(false)
   }
@@ -598,7 +617,7 @@ export default function Home() {
   }
 
   const tabBtn = (id: string, label: string, active: boolean) => (
-    <button onClick={()=>setActiveTab(id as any)} style={{
+    <button onClick={()=>setActiveTab(id as 'avatar'|'tryon'|'analysis'|'colours'|'shop')} style={{
       padding:'10px 14px',border:'none',cursor:'pointer',fontWeight:700,fontSize:12,
       background:'transparent',
       color:active?'#e8c99a':'#38307a',
@@ -610,7 +629,6 @@ export default function Home() {
   return (
     <main style={{minHeight:'100vh',background:'#06061a',color:'#e8e0ff',fontFamily:'system-ui,sans-serif'}}>
 
-      {/* Header */}
       <div style={{background:'linear-gradient(135deg,#160830,#0a0420)',padding:'14px 20px',borderBottom:'1px solid #140d30',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
         <div>
           <h1 style={{margin:0,fontSize:'1.3rem',fontWeight:800,color:'#e8c99a'}}>👗 Fashion Stylist Pro v38</h1>
@@ -629,7 +647,6 @@ export default function Home() {
 
       <div style={{maxWidth:1200,margin:'0 auto',padding:'16px 12px'}}>
 
-        {/* ── UPLOAD STEP ─────────────────────────────────── */}
         {step === 'upload' && (
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(290px,1fr))',gap:16}}>
             <div style={{background:'#0c0c28',border:'1px solid #181840',borderRadius:18,padding:22}}>
@@ -637,7 +654,6 @@ export default function Home() {
               <div style={{color:'#383068',fontSize:12,marginBottom:14,lineHeight:1.5}}>
                 Full-body photo facing camera for best measurements. Your photo becomes the 360° spinning avatar!
               </div>
-              {/* Category */}
               <div style={{display:'flex',gap:6,marginBottom:10}}>
                 {['Women','Men','Kids'].map(c=>(
                   <button key={c} onClick={()=>setCategory(c)} style={{
@@ -648,7 +664,6 @@ export default function Home() {
                   }}>{c}</button>
                 ))}
               </div>
-              {/* Height input */}
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,background:'#08081e',borderRadius:10,padding:'9px 12px',border:'1px solid #141440'}}>
                 <span>📏</span>
                 <span style={{color:'#383060',fontSize:12}}>Height (optional but improves accuracy)</span>
@@ -657,7 +672,6 @@ export default function Home() {
                   style={{flex:1,background:'transparent',border:'none',outline:'none',color:'#e8e0ff',fontSize:14,fontWeight:700,minWidth:0}}/>
                 <span style={{color:'#282850',fontSize:12}}>cm</span>
               </div>
-              {/* Drop zone */}
               <div onClick={()=>fileRef.current?.click()} style={{
                 border:`2px dashed ${preview?'#4030a0':'#161638'}`,
                 borderRadius:14,cursor:'pointer',background:'#080818',textAlign:'center',
@@ -704,10 +718,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* ── RESULT STEP ─────────────────────────────────── */}
         {step === 'result' && result && (
           <div>
-            {/* Tab bar */}
             <div style={{display:'flex',borderBottom:'1px solid #141440',marginBottom:16,overflowX:'auto',gap:0}}>
               {tabBtn('avatar',   '🔄 3D Avatar',    activeTab==='avatar')}
               {tabBtn('tryon',    '👗 Try-On',       activeTab==='tryon')}
@@ -719,19 +731,17 @@ export default function Home() {
               </button>
             </div>
 
-            {/* ── 3D AVATAR TAB ── */}
             {activeTab === 'avatar' && (
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(310px,1fr))',gap:16,alignItems:'start'}}>
                 <PhotoAvatar photoUrl={photoUrl} tryOnUrl={tryOnUrl} />
                 <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                  {/* Upload dress */}
                   <div style={{background:'#0c0c28',border:'1px solid #1a1848',borderRadius:16,padding:18}}>
                     <div style={{color:'#e8c99a',fontWeight:800,marginBottom:4}}>👗 Upload a Dress to Try On</div>
                     <div style={{color:'#3a2e70',fontSize:12,marginBottom:4,lineHeight:1.5}}>
                       Upload a <b style={{color:'#6050a0'}}>different dress image</b> (product photo works best). The system will apply it to your body photo.
                     </div>
                     <div style={{color:'#ff8060',fontSize:11,marginBottom:12}}>
-                      ⚠️ Don't upload your own photo — upload a dress/outfit you want to try!
+                      ⚠️ Don&apos;t upload your own photo — upload a dress/outfit you want to try!
                     </div>
                     <div onClick={()=>dressRef.current?.click()} style={{
                       border:'2px dashed #161640',borderRadius:12,padding:14,cursor:'pointer',
@@ -763,7 +773,6 @@ export default function Home() {
                       </button>
                     )}
                   </div>
-                  {/* Quick stats */}
                   <div style={{background:'#0c0c28',border:'1px solid #1a1848',borderRadius:14,padding:14}}>
                     <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10,flexWrap:'wrap'}}>
                       <span style={{fontSize:22}}>{(BODY_DATA[result.body_type]||BODY_DATA['Rectangle']).icon}</span>
@@ -771,10 +780,10 @@ export default function Home() {
                       <span style={{background:'#2e1578',color:'#ffd700',padding:'3px 12px',borderRadius:8,fontWeight:800,fontSize:13}}>{result.size}</span>
                     </div>
                     <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:5}}>
-                      {([['Bust',result.bust_cm],['Waist',result.waist_cm],['Hip',result.hip_cm],['Height',result.height_cm]] as [string,any][]).map(([k,v])=>(
+                      {([['Bust',result.bust_cm],['Waist',result.waist_cm],['Hip',result.hip_cm],['Height',result.height_cm]] as [string,number][]).map(([k,v])=>(
                         <div key={k} style={{background:'#06061a',border:'1px solid #101038',borderRadius:7,padding:'6px 8px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                           <span style={{color:'#28285a',fontSize:10,textTransform:'uppercase'}}>{k}</span>
-                          <span style={{color:'#c0b8e8',fontWeight:800,fontSize:12}}>{v ? parseFloat(v).toFixed(0) : '—'}<span style={{fontSize:9,color:'#303060',marginLeft:1}}>cm</span></span>
+                          <span style={{color:'#c0b8e8',fontWeight:800,fontSize:12}}>{v ? parseFloat(String(v)).toFixed(0) : '—'}<span style={{fontSize:9,color:'#303060',marginLeft:1}}>cm</span></span>
                         </div>
                       ))}
                     </div>
@@ -783,7 +792,6 @@ export default function Home() {
               </div>
             )}
 
-            {/* ── TRY-ON TAB ── */}
             {activeTab === 'tryon' && (
               <div style={{display:'flex',flexDirection:'column',gap:16,alignItems:'center'}}>
                 {tryOnUrl ? (
@@ -809,7 +817,7 @@ export default function Home() {
                     <div style={{fontSize:56,marginBottom:12}}>👗</div>
                     <div style={{color:'#e8c99a',fontWeight:700,fontSize:16,marginBottom:8}}>No Try-On Generated Yet</div>
                     <div style={{color:'#4a4070',fontSize:13,marginBottom:16,lineHeight:1.6}}>
-                      Go to the <b style={{color:'#8060c0'}}>3D Avatar</b> tab, upload a dress photo, then click "Generate Photo Try-On".
+                      Go to the <b style={{color:'#8060c0'}}>3D Avatar</b> tab, upload a dress photo, then click &quot;Generate Photo Try-On&quot;.
                     </div>
                     <button onClick={()=>setActiveTab('avatar')} style={{background:'linear-gradient(135deg,#4018a0,#7030c0)',color:'#fff',border:'none',padding:'10px 24px',borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:700}}>
                       Go to 3D Avatar
