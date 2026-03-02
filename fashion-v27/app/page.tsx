@@ -82,7 +82,7 @@ function PhotoAvatar({ photoUrl, tryOnUrl }: { photoUrl: string|null, tryOnUrl: 
   const [isDragging, setIsDragging] = useState(false)
   const dragStartX = useRef<number|null>(null)
   const dragStartAngle = useRef(0)
-  const rafRef = useRef<ReturnType<typeof requestAnimationFrame>|null>(null)
+  const rafRef = useRef<number|null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const displayUrl = tryOnUrl || photoUrl
@@ -150,9 +150,7 @@ function PhotoAvatar({ photoUrl, tryOnUrl }: { photoUrl: string|null, tryOnUrl: 
   // 3D projection: compress width at side views, shift at 45° angles
   const rad = angle * Math.PI / 180
   const cosA = Math.cos(rad)
-  const sinA = Math.sin(rad)
   const scaleX = Math.abs(cosA) * 0.85 + 0.15
-  const isBack = Math.abs(cosA) < 0   // never negative
   const isMirrored = cosA < 0          // back face = mirror
   const brightness = 0.65 + Math.abs(cosA) * 0.35  // darker at side view
 
@@ -452,7 +450,7 @@ function ColoursTab({ result }: { result: any }) {
 /* ════════════════════════════════════════════════════════════════
    SHOP TAB
    ════════════════════════════════════════════════════════════════ */
-function ShopTab({ result, category, onTryOn }: { result: any, category: string, onTryOn: (name: string) => void }) {
+function ShopTab({ result, category }: { result: any, category: string }) {
   const bt   = result.body_type
   const size = result.size
   const best = new Set(result.best_colors || [])
@@ -823,7 +821,7 @@ export default function Home() {
 
             {activeTab === 'analysis' && photoUrl && <AnalysisView result={result} photoUrl={photoUrl} />}
             {activeTab === 'colours' && <ColoursTab result={result} />}
-            {activeTab === 'shop'    && <ShopTab result={result} category={category} onTryOn={()=>setActiveTab('avatar')} />}
+            {activeTab === 'shop'    && <ShopTab result={result} category={category} />}
           </div>
         )}
       </div>
