@@ -1,17 +1,10 @@
 'use client'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef } from 'react'
 
 /* ═══════════════════════════════════════════════════════════════
-   Fashion Stylist v28 — PHOTOREALISTIC AVATAR + ACTUAL DRESS TRY-ON
-   
-   KEY UPGRADES:
-   1. Avatar uses ACTUAL FACE from user's uploaded photo (canvas crop)
-   2. Virtual try-on shows the REAL DRESS extracted from photo on avatar
-   3. Avatar proportions match measurements precisely
-   4. Realistic skin-tone shading with gradient depth
-   5. Hair extracted and rendered on avatar
-   6. Smooth 360° rotation with dress wrapping body silhouette
-   7. "Download Avatar" button for sharing
+   Fashion Stylist v29 — REAL PHOTO SPINNING AVATAR
+   The person's ACTUAL PHOTO rotates in 3D. No mannequin. No body model.
+   Drag left/right to spin. Measurement lines overlay on front view.
 ═══════════════════════════════════════════════════════════════ */
 
 const COLOR_HEX: Record<string,string> = {
@@ -47,496 +40,339 @@ const PRODUCTS: Record<string,any[]> = {
   ],
 }
 
-/* ─── Extract face from uploaded image using canvas ─── */
-function extractFaceB64FromFile(file: File): Promise<string|null> {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => {
-      // Face is typically top 30% of photo, horizontally centered
-      const canvas = document.createElement('canvas')
-      const faceSize = 260
-      canvas.width = faceSize; canvas.height = faceSize
-      const ctx = canvas.getContext('2d')!
-      // Crop top-center of image — where face usually is
-      const srcX = img.width * 0.18
-      const srcY = img.height * 0.01
-      const srcW = img.width * 0.64
-      const srcH = img.height * 0.38
-      // Draw face region into circle
-      ctx.beginPath()
-      ctx.arc(faceSize/2, faceSize/2, faceSize/2, 0, Math.PI*2)
-      ctx.clip()
-      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, faceSize, faceSize)
-      resolve(canvas.toDataURL('image/png').split(',')[1])
-    }
-    img.onerror = () => resolve(null)
-    img.src = URL.createObjectURL(file)
-  })
-}
+/* ════════════════════════════════════════════════════════════════
+   BUILD THE SPINNING PHOTO PAGE (runs inside iframe)
+   
+   Technique:
+   - CSS perspective + rotateY on a card that holds the photo
+   - Front face = photo with measurement line overlays
+   - Back face  = same photo mirrored + darkened  
+   - Side view  = photo compressed via scaleX (perspective illusion)
+   - Measurement lines fade out as card rotates to side/back
+   ════════════════════════════════════════════════════════════════ */
+function buildSpinPage(result: any, photoDataUrl: string, dressB64: string | null): string {
+  const bt   = result?.body_type || ''
+  const size = result?.size || ''
 
-/* ─── Lighten/darken a hex colour ─── */
-function lighten(hex: string, f: number) {
-  const h = hex.replace('#','')
-  return '#'+[0,2,4].map(i=>Math.max(0,Math.min(255,Math.round(parseInt(h.slice(i,i+2),16)*f))).toString(16).padStart(2,'0')).join('')
-}
+  // Measurement line positions as % of card height (front-face overlay)
+  // yPct calibrated to typical standing full-body photo proportions
+  const lines = result ? [
+    { label:`Bust ${result.bust_cm}cm`,    y:29, color:'#00d4ff' },
+    { label:`Waist ${result.waist_cm}cm`,  y:41, color:'#ffd700' },
+    { label:`Hip ${result.hip_cm}cm`,      y:56, color:'#c084fc' },
+  ] : []
 
-/* ════════════════════════════════════════════════════════
-   AVATAR BUILDER — uses actual face photo + real dress
-   ════════════════════════════════════════════════════════ */
-function buildAvatar(result: any, dressB64: string|null, faceB64: string|null): string {
-  const skin      = result.skin_hex || '#c8956c'
-  const skinTone  = result.skin_tone || 'Medium'
-  const bodyType  = result.body_type || 'Rectangle'
-  const category  = result.category  || 'Women'
-  const CX=210, W=420, H=700, SC=4.8
+  const linesHTML = lines.map(l => `
+    <div style="
+      position:absolute;left:6%;right:6%;top:${l.y}%;
+      border-top:2px solid ${l.color};
+      opacity:0.9;pointer-events:none;z-index:4;
+    ">
+      <span style="
+        position:absolute;right:0;top:-17px;
+        font-size:10px;font-weight:800;color:${l.color};
+        background:rgba(0,0,0,0.55);padding:1px 5px;border-radius:3px;
+        white-space:nowrap;text-shadow:0 1px 3px #000;
+      ">${l.label}</span>
+    </div>`).join('')
 
-  const hw  = (c:number) => Math.max(10, Math.round((c/(2*Math.PI))*SC))
-  const sh_w  = Math.max(hw((result.shoulder_cm||40)*1.05), 52)
-  const bu_w  = hw(result.bust_cm||88)
-  const wa_w  = hw(result.waist_cm||72)
-  const hh_w  = hw(result.high_hip_cm||90)       // high hip
-  const hi_w  = hw(result.hip_cm||94)             // low hip
-  const th_w  = Math.round(hi_w * 0.68)
-  const ca_w  = Math.round(hi_w * 0.37)
-  const arm_w = Math.max(14, Math.round(sh_w*0.28))
-  const nw    = Math.max(12, Math.round(sh_w*0.26))
-  const ah    = Math.round(arm_w/2)
-
-  // Vertical landmarks
-  const y_sh=220, y_bu=y_sh+70, y_wa=y_bu+60, y_hh=y_wa+38, y_hi=y_hh+30
-  const y_th=y_hi+75, y_kn=y_th+60, y_ca=y_kn+50, y_ft=y_ca+48
-  const y_nek=y_sh-24, y_hcy=y_nek-80
-
-  const skin_sh  = lighten(skin, 0.62)
-  const skin_hi  = lighten(skin, 1.28)
-  const skin_mid = lighten(skin, 0.82)
-  const skin_drk = lighten(skin, 0.48)
-
-  /* ── Body silhouette path (full hourglass with dual-hip) ── */
-  function bodyP(sw:number,bw:number,ww:number,hhw:number,hiw:number,tw:number,cw:number,sh:number) {
-    const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
-    return `M ${L(sw)},${y_sh}
-      C ${L(sw+10)},${y_sh+24} ${L(bw+6)},${y_bu-18} ${L(bw)},${y_bu}
-      C ${L(bw-7)},${y_bu+28} ${L(ww+4)},${y_wa-16} ${L(ww)},${y_wa}
-      C ${L(ww+4)},${y_wa+20} ${L(hhw-3)},${y_hh-12} ${L(hhw)},${y_hh}
-      C ${L(hhw+2)},${y_hh+18} ${L(hiw-2)},${y_hi-10} ${L(hiw)},${y_hi}
-      C ${L(hiw-2)},${y_hi+28} ${L(tw+4)},${y_th-12} ${L(tw)},${y_th}
-      C ${L(tw-2)},${y_th+22} ${L(cw+2)},${y_kn-10} ${L(cw)},${y_kn}
-      C ${L(cw)},${y_kn+26} ${L(cw-2)},${y_ca-6} ${L(cw-2)},${y_ca}
-      C ${L(cw-2)},${y_ca+18} ${L(cw)},${y_ft-4} ${L(cw+2)},${y_ft}
-      L ${R(cw+2)},${y_ft}
-      C ${R(cw)},${y_ft-4} ${R(cw-2)},${y_ca+18} ${R(cw-2)},${y_ca}
-      C ${R(cw-2)},${y_ca-6} ${R(cw)},${y_kn+26} ${R(cw)},${y_kn}
-      C ${R(cw+2)},${y_kn-10} ${R(tw-2)},${y_th+22} ${R(tw)},${y_th}
-      C ${R(tw+4)},${y_th-12} ${R(hiw-2)},${y_hi+28} ${R(hiw)},${y_hi}
-      C ${R(hiw+2)},${y_hi-10} ${R(hhw+2)},${y_hh+18} ${R(hhw)},${y_hh}
-      C ${R(hhw-3)},${y_hh-12} ${R(ww+4)},${y_wa+20} ${R(ww)},${y_wa}
-      C ${R(ww+4)},${y_wa-16} ${R(bw-7)},${y_bu+28} ${R(bw)},${y_bu}
-      C ${R(bw+6)},${y_bu-18} ${R(sw+10)},${y_sh+24} ${R(sw)},${y_sh} Z`
-  }
-
-  /* ── Dress/garment outline (slightly larger than body) ── */
-  function dressP(sw:number,bw:number,ww:number,hhw:number,hiw:number,sh:number) {
-    const sw2=sw+20, bw2=bw+14, ww2=ww+6, hhw2=hhw+8, hiw2=hiw+8
-    const L=(v:number)=>CX-v+sh, R=(v:number)=>CX+v+sh
-    return `M ${L(sw2)},${y_sh}
-      C ${L(sw2+10)},${y_sh+24} ${L(bw2+6)},${y_bu-18} ${L(bw2)},${y_bu}
-      C ${L(bw2-7)},${y_bu+28} ${L(ww2+4)},${y_wa-16} ${L(ww2)},${y_wa}
-      C ${L(ww2+4)},${y_wa+20} ${L(hhw2-2)},${y_hh-12} ${L(hhw2)},${y_hh}
-      C ${L(hhw2+2)},${y_hh+20} ${L(hiw2+2)},${y_ft-14} ${L(hiw2-2)},${y_ft}
-      L ${R(hiw2-2)},${y_ft}
-      C ${R(hiw2+2)},${y_ft-14} ${R(hhw2+2)},${y_hh+20} ${R(hhw2)},${y_hh}
-      C ${R(hhw2-2)},${y_hh-12} ${R(ww2+4)},${y_wa+20} ${R(ww2)},${y_wa}
-      C ${R(ww2+4)},${y_wa-16} ${R(bw2-7)},${y_bu+28} ${R(bw2)},${y_bu}
-      C ${R(bw2+6)},${y_bu-18} ${R(sw2+10)},${y_sh+24} ${R(sw2)},${y_sh} Z`
-  }
-
-  /* ── Arm path ── */
-  function armP(s:number,sw:number,sh:number) {
-    const ax=CX+s*sw+sh, ay=y_sh+12
-    const ex=CX+s*(sw+30)+sh, ey=y_sh+108
-    const hx=CX+s*(sw+12)+sh, hy=y_sh+210
-    return `M ${ax},${ay} C ${ax+s*18},${ay+28} ${ex-s*6},${ey-26} ${ex},${ey} C ${ex+s*4},${ey+34} ${hx+s*10},${hy-34} ${hx},${hy}`
-  }
-
-  /* ── Neck path ── */
-  function neckP(nn:number,sh:number) {
-    return `M ${CX-nn+sh},${y_nek+4} C ${CX-nn+2+sh},${y_nek+16} ${CX-nn+2+sh},${y_sh-8} ${CX-nn+3+sh},${y_sh} L ${CX+nn-3+sh},${y_sh} C ${CX+nn-2+sh},${y_sh-8} ${CX+nn-2+sh},${y_nek+16} ${CX+nn+sh},${y_nek+4} Z`
-  }
-
-  const initBd  = bodyP(sh_w,bu_w,wa_w,hh_w,hi_w,th_w,ca_w,0)
-  const initDr  = dressP(sh_w,bu_w,wa_w,hh_w,hi_w,0)
-  const initLa  = armP(-1,sh_w,0)
-  const initRa  = armP(1,sh_w,0)
-  const initNk  = neckP(nw,0)
-
-  const dressImgW = (hi_w+32)*2
-  const dressImgH = y_ft - y_sh + 30
-
-  // Use actual face from photo if available, otherwise use DiceBear
-  const isMen = category === 'Men'
-  const fallbackFaceUrl = isMen
-    ? `https://api.dicebear.com/9.x/big-ears-neutral/svg?seed=${skinTone}${bodyType}&backgroundColor=transparent&scale=115`
-    : `https://api.dicebear.com/9.x/personas/svg?seed=${skinTone}${bodyType}&backgroundColor=transparent&scale=112`
-
-  const faceImageEl = faceB64
-    ? `<image id="face" href="data:image/png;base64,${faceB64}" x="${CX-82}" y="${y_hcy-88}" width="164" height="164" clip-path="url(#faceCl)" preserveAspectRatio="xMidYMid slice"/>`
-    : `<image id="face" href="${fallbackFaceUrl}" x="${CX-84}" y="${y_hcy-90}" width="168" height="168" clip-path="circle(68px at 84px 86px)" preserveAspectRatio="xMidYMid meet"/>`
-
-  const dressDefs = dressB64
-    ? `<clipPath id="dCl"><path id="dClP" d="${initDr}"/></clipPath>`
-    : ''
-
+  // Optional dress overlay on front face
   const dressLayer = dressB64
-    ? `<image id="dImg" href="data:image/png;base64,${dressB64}"
-         x="${CX-dressImgW/2}" y="${y_sh}" width="${dressImgW}" height="${dressImgH}"
-         clip-path="url(#dCl)" preserveAspectRatio="xMidYMid slice" opacity="0.97"/>
-       <path d="${initDr}" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="1.5"/>`
+    ? `<div style="position:absolute;top:22%;left:0;right:0;bottom:0;pointer-events:none;z-index:3;border-radius:0 0 14px 14px;overflow:hidden;">
+         <img src="data:image/png;base64,${dressB64}" style="width:100%;height:100%;object-fit:cover;opacity:0.85;"/>
+       </div>`
     : ''
 
-  const sleeveLayer = dressB64
-    ? `<path id="la2" d="${initLa}" fill="none" stroke="${skin_mid}" stroke-width="${Math.max(10,arm_w-4)}" stroke-linecap="round"/>
-       <ellipse id="lh2" cx="${CX-sh_w-12}" cy="${y_sh+214}" rx="${ah}" ry="${ah+2}" fill="${skin}"/>
-       <path id="ra2" d="${initRa}" fill="none" stroke="${skin_mid}" stroke-width="${Math.max(10,arm_w-4)}" stroke-linecap="round"/>
-       <ellipse id="rh2" cx="${CX+sh_w+12}" cy="${y_sh+214}" rx="${ah}" ry="${ah+2}" fill="${skin}"/>`
-    : ''
-
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#07071a;display:flex;justify-content:center;padding:8px;font-family:system-ui}
-svg{cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
-.ctrl-btn{background:rgba(30,24,72,0.9);color:#c8b8ff;border:1px solid #4a3898;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;transition:all .2s}
-.ctrl-btn:hover{background:#3a2f80;color:#fff;border-color:#7a68e8}
-.dl-btn{background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:800;transition:all .2s}
-.dl-btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(124,58,237,0.5)}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{
+  width:100%;height:100%;
+  background:radial-gradient(ellipse at 50% 46%,#140e38 0%,#05050f 100%);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;
+  padding:18px 8px 12px;
+  font-family:system-ui,sans-serif;
+  overflow:hidden;user-select:none;
+}
+
+/* ── 3-D stage ── */
+#stage{
+  perspective:1000px;
+  perspective-origin:50% 46%;
+  width:224px;height:430px;
+  flex-shrink:0;
+}
+
+/* ── The rotating card ── */
+#card{
+  width:100%;height:100%;
+  position:relative;
+  transform-style:preserve-3d;
+  transform:rotateY(0deg);
+  cursor:grab;
+  will-change:transform;
+}
+#card:active{cursor:grabbing;}
+
+/* ── Both faces ── */
+.face{
+  position:absolute;inset:0;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:0 10px 44px rgba(0,0,0,0.75),0 0 0 1px rgba(255,255,255,0.05);
+}
+.face img.photo{
+  width:100%;height:100%;
+  object-fit:cover;object-position:top center;
+  display:block;pointer-events:none;
+}
+#front{transform:rotateY(0deg);}
+#back {transform:rotateY(180deg);}
+#back img.photo{transform:scaleX(-1);filter:brightness(0.65) saturate(0.8);}
+
+/* ── Floor shadow ── */
+#shadow{
+  width:180px;height:16px;margin-top:-2px;flex-shrink:0;
+  background:radial-gradient(ellipse,rgba(100,70,220,0.22) 0%,transparent 70%);
+}
+
+/* ── Size pill ── */
+#pill{
+  margin-top:10px;flex-shrink:0;
+  display:flex;align-items:center;gap:8px;
+  background:rgba(22,16,56,0.92);
+  border:1px solid rgba(120,80,220,0.28);
+  border-radius:30px;padding:5px 16px;
+}
+#pill .sz{color:#ffd700;font-weight:800;font-size:15px;}
+#pill .bt{color:#7060a0;font-size:12px;}
+
+/* ── Controls ── */
+#ctrls{
+  margin-top:12px;flex-shrink:0;
+  display:flex;gap:6px;flex-wrap:wrap;justify-content:center;
+}
+button{
+  background:rgba(24,18,58,0.94);color:#c0b0f0;
+  border:1px solid rgba(80,60,160,0.5);
+  padding:6px 14px;border-radius:8px;
+  cursor:pointer;font-size:11px;font-weight:700;
+  transition:background .15s,color .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+button:hover,button:active{background:#3a2d80;color:#fff;}
+#spinBtn.on{background:#5b21b6;color:#fff;border-color:#8b5cf6;}
+
+/* ── Slider ── */
+#sl{
+  margin-top:8px;flex-shrink:0;
+  width:210px;accent-color:#7c3aed;
+}
+#vl{
+  margin-top:5px;flex-shrink:0;
+  font-size:10px;letter-spacing:1.2px;
+  color:rgba(160,140,220,0.28);
+}
 </style>
-</head><body>
-<div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:100%">
-<svg id="av" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto">
-<defs>
-<radialGradient id="bgG" cx="50%" cy="48%" r="65%">
-  <stop offset="0%" stop-color="#1a1240"/>
-  <stop offset="100%" stop-color="#05050f"/>
-</radialGradient>
-<linearGradient id="bG" x1="0%" y1="0%" x2="100%" y2="0%">
-  <stop offset="0%" stop-color="${skin_drk}"/>
-  <stop offset="25%" stop-color="${skin_sh}"/>
-  <stop offset="50%" stop-color="${skin_hi}" stop-opacity="0.88"/>
-  <stop offset="75%" stop-color="${skin}"/>
-  <stop offset="100%" stop-color="${skin_drk}"/>
-</linearGradient>
-<linearGradient id="legG" x1="0%" y1="0%" x2="100%" y2="0%">
-  <stop offset="0%" stop-color="${skin_drk}"/>
-  <stop offset="30%" stop-color="${skin}"/>
-  <stop offset="60%" stop-color="${skin_hi}" stop-opacity="0.8"/>
-  <stop offset="100%" stop-color="${skin_drk}"/>
-</linearGradient>
-<radialGradient id="headG" cx="42%" cy="38%" r="60%">
-  <stop offset="0%" stop-color="${skin_hi}"/>
-  <stop offset="55%" stop-color="${skin}"/>
-  <stop offset="100%" stop-color="${skin_sh}"/>
-</radialGradient>
-<filter id="softs"><feGaussianBlur stdDeviation="2.5"/></filter>
-<filter id="ds"><feDropShadow dx="2" dy="6" stdDeviation="6" flood-opacity="0.3"/></filter>
-<filter id="glow"><feGaussianBlur stdDeviation="8" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-<clipPath id="faceCl"><circle cx="82" cy="82" r="72"/></clipPath>
-${dressDefs}
-</defs>
+</head>
+<body>
 
-<!-- Background -->
-<rect width="${W}" height="${H}" fill="url(#bgG)"/>
-<!-- Subtle floor reflection -->
-<ellipse cx="${CX}" cy="${y_ft+22}" rx="${hi_w+18}" ry="14" fill="rgba(100,80,200,0.12)" filter="url(#softs)"/>
+<div id="stage">
+  <div id="card">
 
-<!-- Arms (behind body when no dress) -->
-<path id="la" d="${initLa}" fill="none" stroke="${skin_mid}" stroke-width="${arm_w}" stroke-linecap="round" opacity="${dressB64?'0':'1'}"/>
-<ellipse id="lh" cx="${CX-sh_w-12}" cy="${y_sh+214}" rx="${ah}" ry="${ah+2}" fill="${skin}" opacity="${dressB64?'0':'1'}"/>
-<path id="ra" d="${initRa}" fill="none" stroke="${skin_mid}" stroke-width="${arm_w}" stroke-linecap="round" opacity="${dressB64?'0':'1'}"/>
-<ellipse id="rh" cx="${CX+sh_w+12}" cy="${y_sh+214}" rx="${ah}" ry="${ah+2}" fill="${skin}" opacity="${dressB64?'0':'1'}"/>
+    <!-- FRONT: real photo + measurement lines + optional dress -->
+    <div class="face" id="front">
+      <img class="photo" src="${photoDataUrl}" alt="you"/>
+      ${linesHTML}
+      ${dressLayer}
+    </div>
 
-<!-- Body -->
-<path id="body" d="${initBd}" fill="url(#bG)" filter="url(#ds)"/>
+    <!-- BACK: mirrored photo -->
+    <div class="face" id="back">
+      <img class="photo" src="${photoDataUrl}" alt="back"/>
+    </div>
 
-<!-- Body contour highlight (centre line) -->
-<path d="M ${CX},${y_sh+8} C ${CX},${y_bu-4} ${CX},${y_bu+18} ${CX},${y_wa}" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="12" stroke-linecap="round"/>
-
-<!-- Dress layer -->
-${dressLayer}
-${sleeveLayer}
-
-<!-- Neck -->
-<path id="neck" d="${initNk}" fill="${skin_mid}" filter="url(#ds)"/>
-
-<!-- Head circle (skin) -->
-<circle id="head" cx="${CX}" cy="${y_hcy}" r="70" fill="url(#headG)" filter="url(#ds)"/>
-
-<!-- Face (actual photo crop or DiceBear fallback) -->
-${faceImageEl}
-
-<!-- Feet -->
-<ellipse id="lft" cx="${CX-ca_w+4}" cy="${y_ft+7}" rx="${ca_w+6}" ry="8" fill="${lighten(skin,0.52)}"/>
-<ellipse id="rft" cx="${CX+ca_w-4}" cy="${y_ft+7}" rx="${ca_w+6}" ry="8" fill="${lighten(skin,0.52)}"/>
-
-<!-- Label -->
-<text id="vl" x="${CX}" y="${H-6}" text-anchor="middle" font-size="10" font-family="system-ui" fill="rgba(180,160,255,0.22)">FRONT · 0° · ${bodyType}</text>
-</svg>
-
-<!-- Controls -->
-<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
-  <button class="ctrl-btn" onclick="snapTo(0)">⬆ Front</button>
-  <button class="ctrl-btn" onclick="snapTo(90)">➡ Right</button>
-  <button class="ctrl-btn" onclick="snapTo(180)">⬇ Back</button>
-  <button class="ctrl-btn" onclick="snapTo(270)">⬅ Left</button>
-  <button id="sb" class="ctrl-btn" onclick="toggleSpin()">▶ Spin</button>
-  <button class="dl-btn" onclick="downloadAvatar()">⬇ Save</button>
+  </div>
 </div>
-<input type="range" min="0" max="359" value="0" step="1"
-  style="width:260px;accent-color:#8060e0;margin-top:2px"
-  oninput="setAngle(+this.value)" id="sl"/>
+
+<div id="shadow"></div>
+
+<div id="pill">
+  <span class="sz">${size}</span>
+  <span class="bt">${bt}</span>
 </div>
+
+<div id="ctrls">
+  <button onclick="snapTo(0)">⬆ Front</button>
+  <button onclick="snapTo(90)">➡ Right</button>
+  <button onclick="snapTo(180)">⬇ Back</button>
+  <button onclick="snapTo(270)">⬅ Left</button>
+  <button id="spinBtn" onclick="toggleSpin()">▶ Spin</button>
+</div>
+<input type="range" id="sl" min="0" max="359" value="0" step="1" oninput="setAngle(+this.value)"/>
+<div id="vl">FRONT · 0°</div>
 
 <script>
 (function(){
-var CX=${CX},SHW=${sh_w},BUW=${bu_w},WAW=${wa_w},HHW=${hh_w},HIW=${hi_w},THW=${th_w},CAW=${ca_w};
-var NW=${nw},ARW=${arm_w},AH=${ah};
-var YSH=${y_sh},YBU=${y_bu},YWA=${y_wa},YHH=${y_hh},YHI=${y_hi};
-var YTH=${y_th},YKN=${y_kn},YCA=${y_ca},YFT=${y_ft};
-var YNER=${y_nek},YHCY=${y_hcy};
-var BT="${bodyType}",hasDress=${dressB64?'true':'false'};
-var angle=0,spinning=false,dragX=null,dragA=0;
-var DW=${dressImgW};
-
-function m360(a){return((a%360)+360)%360;}
-function vn(a){a=m360(a);if(a<22)return'FRONT';if(a<67)return'FRONT-R';if(a<112)return'RIGHT';if(a<157)return'BACK-R';if(a<202)return'BACK';if(a<247)return'BACK-L';if(a<292)return'LEFT';return'FRONT-L';}
-function S(id,attr,val){var e=document.getElementById(id);if(e)e.setAttribute(attr,val);}
-function O(id,v){var e=document.getElementById(id);if(e)e.style.opacity=v;}
-
-function bodyPath(sw,bw,ww,hhw,hiw,tw,cw,sh){
-  var L=function(v){return CX-v+sh;},R=function(v){return CX+v+sh;};
-  return'M '+L(sw)+','+YSH
-    +' C '+L(sw+10)+','+(YSH+24)+' '+L(bw+6)+','+(YBU-18)+' '+L(bw)+','+YBU
-    +' C '+L(bw-7)+','+(YBU+28)+' '+L(ww+4)+','+(YWA-16)+' '+L(ww)+','+YWA
-    +' C '+L(ww+4)+','+(YWA+20)+' '+L(hhw-3)+','+(YHH-12)+' '+L(hhw)+','+YHH
-    +' C '+L(hhw+2)+','+(YHH+18)+' '+L(hiw-2)+','+(YHI-10)+' '+L(hiw)+','+YHI
-    +' C '+L(hiw-2)+','+(YHI+28)+' '+L(tw+4)+','+(YTH-12)+' '+L(tw)+','+YTH
-    +' C '+L(tw-2)+','+(YTH+22)+' '+L(cw+2)+','+(YKN-10)+' '+L(cw)+','+YKN
-    +' C '+L(cw)+','+(YKN+26)+' '+L(cw-2)+','+(YCA-6)+' '+L(cw-2)+','+YCA
-    +' C '+L(cw-2)+','+(YCA+18)+' '+L(cw)+','+(YFT-4)+' '+L(cw+2)+','+YFT
-    +' L '+R(cw+2)+','+YFT
-    +' C '+R(cw)+','+(YFT-4)+' '+R(cw-2)+','+(YCA+18)+' '+R(cw-2)+','+YCA
-    +' C '+R(cw-2)+','+(YCA-6)+' '+R(cw)+','+(YKN+26)+' '+R(cw)+','+YKN
-    +' C '+R(cw+2)+','+(YKN-10)+' '+R(tw-2)+','+(YTH+22)+' '+R(tw)+','+YTH
-    +' C '+R(tw+4)+','+(YTH-12)+' '+R(hiw-2)+','+(YHI+28)+' '+R(hiw)+','+YHI
-    +' C '+R(hiw+2)+','+(YHI-10)+' '+R(hhw+2)+','+(YHH+18)+' '+R(hhw)+','+YHH
-    +' C '+R(hhw-3)+','+(YHH-12)+' '+R(ww+4)+','+(YWA+20)+' '+R(ww)+','+YWA
-    +' C '+R(ww+4)+','+(YWA-16)+' '+R(bw-7)+','+(YBU+28)+' '+R(bw)+','+YBU
-    +' C '+R(bw+6)+','+(YBU-18)+' '+R(sw+10)+','+(YSH+24)+' '+R(sw)+','+YSH+' Z';
-}
-
-function dressPath(sw,bw,ww,hhw,hiw,sh){
-  var sw2=sw+20,bw2=bw+14,ww2=ww+6,hhw2=hhw+8,hiw2=hiw+8;
-  var L=function(v){return CX-v+sh;},R=function(v){return CX+v+sh;};
-  return'M '+L(sw2)+','+YSH
-    +' C '+L(sw2+10)+','+(YSH+24)+' '+L(bw2+6)+','+(YBU-18)+' '+L(bw2)+','+YBU
-    +' C '+L(bw2-7)+','+(YBU+28)+' '+L(ww2+4)+','+(YWA-16)+' '+L(ww2)+','+YWA
-    +' C '+L(ww2+4)+','+(YWA+20)+' '+L(hhw2-2)+','+(YHH-12)+' '+L(hhw2)+','+YHH
-    +' C '+L(hhw2+2)+','+(YHH+20)+' '+L(hiw2+2)+','+(YFT-14)+' '+L(hiw2-2)+','+YFT
-    +' L '+R(hiw2-2)+','+YFT
-    +' C '+R(hiw2+2)+','+(YFT-14)+' '+R(hhw2+2)+','+(YHH+20)+' '+R(hhw2)+','+YHH
-    +' C '+R(hhw2-2)+','+(YHH-12)+' '+R(ww2+4)+','+(YWA+20)+' '+R(ww2)+','+YWA
-    +' C '+R(ww2+4)+','+(YWA-16)+' '+R(bw2-7)+','+(YBU+28)+' '+R(bw2)+','+YBU
-    +' C '+R(bw2+6)+','+(YBU-18)+' '+R(sw2+10)+','+(YSH+24)+' '+R(sw2)+','+YSH+' Z';
-}
-
-function armPath(s,sw,sh){
-  var ax=CX+s*sw+sh,ay=YSH+12;
-  var ex=CX+s*(sw+30)+sh,ey=YSH+108;
-  var hx=CX+s*(sw+12)+sh,hy=YSH+210;
-  return'M '+ax+','+ay+' C '+(ax+s*18)+','+(ay+28)+' '+(ex-s*6)+','+(ey-26)+' '+ex+','+ey
-        +' C '+(ex+s*4)+','+(ey+34)+' '+(hx+s*10)+','+(hy-34)+' '+hx+','+hy;
-}
-
-function neckPath(nn,sh){
-  return'M '+(CX-nn+sh)+','+(YNER+4)
-    +' C '+(CX-nn+2+sh)+','+(YNER+16)+' '+(CX-nn+2+sh)+','+(YSH-8)+' '+(CX-nn+3+sh)+','+YSH
-    +' L '+(CX+nn-3+sh)+','+YSH
-    +' C '+(CX+nn-2+sh)+','+(YSH-8)+' '+(CX+nn-2+sh)+','+(YNER+16)+' '+(CX+nn+sh)+','+(YNER+4)+' Z';
-}
-
-function upd(a){
-  a=m360(a);var r=a*Math.PI/180,cosA=Math.cos(r),sinA=Math.sin(r);
-  var wS=Math.abs(cosA)*0.86+0.14,sh=Math.round(sinA*24);
-  var sw=Math.max(10,Math.round(SHW*wS)),bw=Math.max(10,Math.round(BUW*wS));
-  var ww=Math.max(10,Math.round(WAW*wS)),hhw=Math.max(10,Math.round(HHW*wS));
-  var hiw=Math.max(10,Math.round(HIW*wS));
-  var tw=Math.max(8,Math.round(THW*wS)),cw=Math.max(6,Math.round(CAW*wS));
-  var nn=Math.max(5,Math.round(NW*wS)),aw=Math.round(ARW*wS),ah2=Math.round(aw/2);
-  S('body','d',bodyPath(sw,bw,ww,hhw,hiw,tw,cw,sh));
-  S('neck','d',neckPath(nn,sh));
-  S('head','cx',CX+sh);
-  var fi=document.getElementById('face');
-  if(fi){fi.setAttribute('x',CX-82+sh);}
-  O('face',Math.max(0,cosA).toFixed(2));
-  S('lft','cx',CX-cw+4+sh);S('rft','cx',CX+cw-4+sh);
-  if(!hasDress){
-    var sL=!(a>28&&a<152),sR=!(a>208&&a<332);
-    S('la','d',armPath(-1,sw,sh));S('ra','d',armPath(1,sw,sh));
-    O('la',sL?'1':'0');O('lh',sL?'1':'0');O('ra',sR?'1':'0');O('rh',sR?'1':'0');
-    S('lh','cx',CX-sw-12+sh);S('rh','cx',CX+sw+12+sh);
-  }
-  if(hasDress){
-    var dc=document.getElementById('dClP');if(dc)dc.setAttribute('d',dressPath(sw,bw,ww,hhw,hiw,sh));
-    var di=document.getElementById('dImg');
-    if(di){
-      var sW=DW*wS;
-      di.setAttribute('width',sW.toFixed(1));
-      di.setAttribute('x',(CX-sW/2+sh).toFixed(1));
-      di.style.opacity=(0.55+Math.max(0,cosA)*0.42).toFixed(2);
-    }
-    S('la2','d',armPath(-1,sw,sh));S('ra2','d',armPath(1,sw,sh));
-    var sL2=!(a>28&&a<152),sR2=!(a>208&&a<332);
-    O('la2',sL2?'0.9':'0');O('lh2',sL2?'0.9':'0');O('ra2',sR2?'0.9':'0');O('rh2',sR2?'0.9':'0');
-    S('lh2','cx',CX-sw-12+sh);S('rh2','cx',CX+sw+12+sh);
-  }
-  S('vl','x',CX+sh);
+  var card=document.getElementById('card');
+  var sl=document.getElementById('sl');
+  var spinBtn=document.getElementById('spinBtn');
   var vl=document.getElementById('vl');
-  if(vl)vl.textContent=vn(a)+' · '+Math.round(a)+'° · '+BT;
-  var sl=document.getElementById('sl');if(sl)sl.value=Math.round(a);
-}
+  var angle=0,spinning=false,raf=null;
+  var dragX=null,dragA=0;
 
-function setAngle(a){angle=m360(a);upd(angle);}window.setAngle=setAngle;
+  var lines=document.querySelectorAll('#front>div[style*="border-top"]');
 
-function snapTo(t){
-  var st=angle,df=m360(t-st);if(df>180)df-=360;
-  var steps=28,step=0;
-  function tick(){step++;var p=step/steps;p=p<.5?2*p*p:-1+(4-2*p)*p;
-    angle=m360(st+df*p);upd(angle);
-    if(step<steps)requestAnimationFrame(tick);else{angle=m360(t);upd(angle);}}
-  requestAnimationFrame(tick);}window.snapTo=snapTo;
+  function m360(a){return((a%360)+360)%360;}
 
-function toggleSpin(){
-  spinning=!spinning;
-  var b=document.getElementById('sb');if(b)b.textContent=spinning?'⏸ Stop':'▶ Spin';
-  if(spinning)loop();}window.toggleSpin=toggleSpin;
+  function label(a){
+    a=m360(a);
+    if(a<22)return'FRONT';if(a<67)return'FRONT-R';if(a<112)return'RIGHT';
+    if(a<157)return'BACK-R';if(a<202)return'BACK';if(a<247)return'BACK-L';
+    if(a<292)return'LEFT';return'FRONT-L';
+  }
 
-function loop(){if(!spinning)return;angle=m360(angle+1.1);upd(angle);requestAnimationFrame(loop);}
+  function render(a){
+    a=m360(a);
+    // CSS 3D rotation — browser handles back-face hiding
+    card.style.transform='rotateY('+a+'deg)';
+    // Fade measurement lines: visible front, invisible at sides/back
+    var cos=Math.cos(a*Math.PI/180);
+    var lo=Math.max(0,cos).toFixed(2);
+    lines.forEach(function(l){l.style.opacity=lo;});
+    sl.value=Math.round(a);
+    vl.textContent=label(a)+' · '+Math.round(a)+'°';
+  }
 
-/* Download avatar as PNG */
-function downloadAvatar(){
-  var svg=document.getElementById('av');
-  if(!svg)return;
-  var serializer=new XMLSerializer();
-  var svgStr=serializer.serializeToString(svg);
-  var canvas=document.createElement('canvas');
-  canvas.width=840;canvas.height=1400;
-  var ctx=canvas.getContext('2d');
-  var img=new Image();
-  img.onload=function(){
-    ctx.drawImage(img,0,0,840,1400);
-    var link=document.createElement('a');
-    link.download='my-avatar.png';
-    link.href=canvas.toDataURL('image/png');
-    link.click();
-  };
-  img.src='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svgStr)));
-}window.downloadAvatar=downloadAvatar;
+  function setAngle(a){angle=m360(a);render(angle);}
+  window.setAngle=setAngle;
 
-/* Drag rotate */
-var sv=document.getElementById('av');
-if(sv){
-  sv.addEventListener('mousedown',function(e){
-    spinning=false;var b=document.getElementById('sb');if(b)b.textContent='▶ Spin';
-    dragX=e.clientX;dragA=angle;sv.style.cursor='grabbing';e.preventDefault();});
-  document.addEventListener('mousemove',function(e){
-    if(dragX===null)return;angle=m360(dragA+(e.clientX-dragX)*0.54);upd(angle);});
-  document.addEventListener('mouseup',function(){dragX=null;if(sv)sv.style.cursor='grab';});
-  sv.addEventListener('touchstart',function(e){
-    spinning=false;dragX=e.touches[0].clientX;dragA=angle;e.preventDefault();},{passive:false});
-  document.addEventListener('touchmove',function(e){
-    if(dragX===null)return;angle=m360(dragA+(e.touches[0].clientX-dragX)*0.54);upd(angle);
-    e.preventDefault();},{passive:false});
+  function snapTo(t){
+    stop();
+    var s=angle,d=m360(t-s);if(d>180)d-=360;
+    var N=28,i=0;
+    function tick(){
+      i++;var p=i/N;p=p<.5?2*p*p:-1+(4-2*p)*p;
+      angle=m360(s+d*p);render(angle);
+      if(i<N)raf=requestAnimationFrame(tick);
+      else{angle=m360(t);render(angle);}
+    }
+    raf=requestAnimationFrame(tick);
+  }
+  window.snapTo=snapTo;
+
+  function stop(){
+    spinning=false;spinBtn.textContent='▶ Spin';
+    spinBtn.classList.remove('on');
+    if(raf){cancelAnimationFrame(raf);raf=null;}
+  }
+
+  function toggleSpin(){
+    spinning=!spinning;
+    spinBtn.textContent=spinning?'⏸ Stop':'▶ Spin';
+    spinning?spinBtn.classList.add('on'):spinBtn.classList.remove('on');
+    if(spinning)loop();else if(raf){cancelAnimationFrame(raf);raf=null;}
+  }
+  window.toggleSpin=toggleSpin;
+
+  function loop(){if(!spinning)return;angle=m360(angle+0.9);render(angle);raf=requestAnimationFrame(loop);}
+
+  // Mouse drag
+  card.addEventListener('mousedown',function(e){stop();dragX=e.clientX;dragA=angle;e.preventDefault();});
+  document.addEventListener('mousemove',function(e){if(dragX===null)return;angle=m360(dragA+(e.clientX-dragX)*0.55);render(angle);});
+  document.addEventListener('mouseup',function(){dragX=null;});
+
+  // Touch drag
+  card.addEventListener('touchstart',function(e){stop();dragX=e.touches[0].clientX;dragA=angle;e.preventDefault();},{passive:false});
+  document.addEventListener('touchmove',function(e){if(dragX===null)return;angle=m360(dragA+(e.touches[0].clientX-dragX)*0.55);render(angle);e.preventDefault();},{passive:false});
   document.addEventListener('touchend',function(){dragX=null;});
-}
-upd(0);
+
+  render(0);
 })();
-</script></body></html>`
+</script>
+</body>
+</html>`
 }
 
-/* ════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
    MAIN PAGE COMPONENT
-   ════════════════════════════════════════════════════════ */
+   ════════════════════════════════════════════════════════════════ */
 export default function Home() {
-  const [step,          setStep]         = useState<'upload'|'result'>('upload')
-  const [loading,       setLoading]      = useState(false)
-  const [error,         setError]        = useState('')
-  const [result,        setResult]       = useState<any>(null)
-  const [visImg,        setVisImg]       = useState<string|null>(null)
-  const [preview,       setPreview]      = useState<string|null>(null)
-  const [category,      setCategory]     = useState('Women')
-  const [userHeight,    setUserHeight]   = useState<string>('')
-  const [dressB64,      setDressB64]     = useState<string|null>(null)
-  const [dressPreview,  setDressPreview] = useState<string|null>(null)
-  const [dressLoading,  setDressLoading] = useState(false)
-  const [activeTab,     setActiveTab]    = useState<'avatar'|'tryon'|'shop'>('avatar')
-  // Actual face extracted from user's photo
-  const [faceB64,       setFaceB64]      = useState<string|null>(null)
-  // Track if dress was extracted from body photo (auto try-on)
-  const [autoTryon,     setAutoTryon]    = useState(false)
+  const [step,         setStep]        = useState<'upload'|'result'>('upload')
+  const [loading,      setLoading]     = useState(false)
+  const [error,        setError]       = useState('')
+  const [result,       setResult]      = useState<any>(null)
+  const [visImg,       setVisImg]      = useState<string|null>(null)
+  const [preview,      setPreview]     = useState<string|null>(null)
+  const [photoDataUrl, setPhotoDataUrl]= useState<string|null>(null) // full data URL for iframe
+  const [category,     setCategory]    = useState('Women')
+  const [userHeight,   setUserHeight]  = useState('')
+  const [dressB64,     setDressB64]    = useState<string|null>(null)
+  const [dressPreview, setDressPreview]= useState<string|null>(null)
+  const [dressLoading, setDressLoading]= useState(false)
+  const [activeTab,    setActiveTab]   = useState<'avatar'|'tryon'|'shop'>('avatar')
 
   const fileRef  = useRef<HTMLInputElement>(null)
   const dressRef = useRef<HTMLInputElement>(null)
 
+  /* Read file as base64 data URL (for embedding in iframe srcDoc) */
+  const readDataUrl = (file: File): Promise<string> =>
+    new Promise(res => {
+      const r = new FileReader()
+      r.onload = () => res(r.result as string)
+      r.readAsDataURL(file)
+    })
+
   const analyze = async (file: File) => {
     setLoading(true); setError('')
     try {
-      // Extract actual face from the photo (client-side, instant)
-      const faceFromPhoto = await extractFaceB64FromFile(file)
-      if (faceFromPhoto) setFaceB64(faceFromPhoto)
+      // Read photo as data URL — this is what the spinning avatar uses
+      const dataUrl = await readDataUrl(file)
+      setPhotoDataUrl(dataUrl)
 
+      // Send to HF backend for measurements
       const form = new FormData()
       form.append('file', file)
       form.append('category', category)
       if (userHeight) form.append('user_height', userHeight)
 
-      const data = await fetch('/api/analyze', {method:'POST', body:form}).then(r=>r.json())
+      const data = await fetch('/api/analyze', { method:'POST', body:form }).then(r=>r.json())
       if (data.error) { setError(data.error); setLoading(false); return }
 
       setResult(data)
       if (data.vis_jpeg_b64) setVisImg(`data:image/jpeg;base64,${data.vis_jpeg_b64}`)
 
-      // Auto-extract dress from the same photo for instant try-on
-      await tryOnFromFile(file, true)
+      // Auto extract dress from same photo (silent)
+      extractDressFrom(file, true)
 
       setStep('result')
     } catch(e:any) { setError(e.message) }
     setLoading(false)
   }
 
-  const tryOnFromFile = async (file: File, isAuto = false) => {
-    if (!isAuto) setDressLoading(true)
+  const extractDressFrom = async (file: File, silent = false) => {
+    if (!silent) setDressLoading(true)
     try {
       const form = new FormData(); form.append('file', file)
-      const data = await fetch('/api/extract-dress', {method:'POST', body:form}).then(r=>r.json())
-      if (data.error) { if (!isAuto) setError(data.error); return }
-      setDressB64(data.dress_b64)
-      setDressPreview(`data:image/png;base64,${data.dress_b64}`)
-      if (isAuto) setAutoTryon(true)
-      else setActiveTab('tryon')
-    } catch(e:any) { if (!isAuto) setError((e as any).message) }
-    if (!isAuto) setDressLoading(false)
+      const data = await fetch('/api/extract-dress', { method:'POST', body:form }).then(r=>r.json())
+      if (!data.error) {
+        setDressB64(data.dress_b64)
+        setDressPreview(`data:image/png;base64,${data.dress_b64}`)
+        if (!silent) setActiveTab('tryon')
+      }
+    } catch {}
+    if (!silent) setDressLoading(false)
   }
 
-  const tryOn = async (file: File) => {
-    setDressLoading(true)
-    setDressPreview(URL.createObjectURL(file))
-    setAutoTryon(false)
-    await tryOnFromFile(file, false)
-    setDressLoading(false)
-  }
+  const clearDress = () => { setDressB64(null); setDressPreview(null) }
 
-  const clearDress = () => { setDressB64(null); setDressPreview(null); setAutoTryon(false) }
-
+  /* Fit analysis badges */
   const WOMEN_BUST: Record<string,number> = {XS:76,S:82,M:88,L:94,XL:100,XXL:108,XXXL:116,'4XL':124}
   const fitBadges = () => {
     if (!result) return null
@@ -544,137 +380,126 @@ export default function Home() {
     return [
       ['Bust/Chest', std - result.bust_cm],
       ['Waist', (std-14) - result.waist_cm],
-      ['Hip', (std+6) - result.hip_cm]
+      ['Hip', (std+6) - result.hip_cm],
     ].map(([zone, diff]) => {
       const d = diff as number
-      const [icon,lbl,col] = d>=0&&d<6 ? ['✅','Perfect Fit','#22c55e']
-        : d>=6 ? ['⬆','Slightly Loose','#eab308']
-        : d>=-5 ? ['⚠','Snug Fit','#f97316']
-        : ['❌','Too Tight','#ef4444']
+      const [icon,lbl,col] = d>=0&&d<6 ? ['✅','Perfect fit','#22c55e'] : d>=6 ? ['⬆','Slightly loose','#eab308'] : d>=-5 ? ['⚠','Snug','#f97316'] : ['❌','Too tight','#ef4444']
       return (
-        <div key={zone as string} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:'#07071a',borderLeft:`4px solid ${col}`,borderRadius:6,marginBottom:5,fontSize:12}}>
+        <div key={zone as string} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:'#06061a',borderLeft:`3px solid ${col}`,borderRadius:6,marginBottom:5,fontSize:12}}>
           <span>{icon}</span>
           <div>
-            <div style={{color:col,fontWeight:700}}>{zone as string}</div>
-            <div style={{color:'#555',fontSize:11}}>{lbl} ({d>=0?'+':''}{d.toFixed(1)}cm)</div>
+            <div style={{color:col,fontWeight:700,fontSize:12}}>{zone as string}</div>
+            <div style={{color:'#444',fontSize:11}}>{lbl} ({d>=0?'+':''}{d.toFixed(1)}cm)</div>
           </div>
         </div>
       )
     })
   }
 
-  const avatarFrame = (id: string) => {
-    const frameKey = `${id}-${dressB64?.slice(-8)||'bare'}-${faceB64?.slice(-8)||'nf'}`
+  /* The spinning photo iframe — key changes force re-render when photo/dress changes */
+  const spinFrame = (id: string, withDress: boolean) => {
+    if (!photoDataUrl || !result) return (
+      <div style={{background:'#080818',borderRadius:16,height:500,display:'flex',alignItems:'center',justifyContent:'center',color:'#2a2a60',fontSize:14}}>
+        Photo loads here
+      </div>
+    )
+    const k = `${id}-${photoDataUrl.length}-${withDress&&dressB64?dressB64.length:0}`
     return (
-      <div style={{background:'#08081a',borderRadius:16,overflow:'hidden',minHeight:500,position:'relative'}}>
-        {result && (
-          <div style={{position:'absolute',top:10,right:10,zIndex:10,display:'flex',gap:6,flexWrap:'wrap'}}>
-            {faceB64 && (
-              <span style={{background:'rgba(34,197,94,0.15)',border:'1px solid #22c55e44',color:'#22c55e',padding:'3px 8px',borderRadius:6,fontSize:10,fontWeight:700}}>
-                ✓ Real face
-              </span>
-            )}
-            {dressB64 && (
-              <span style={{background:'rgba(139,92,246,0.15)',border:'1px solid #8b5cf644',color:'#a78bfa',padding:'3px 8px',borderRadius:6,fontSize:10,fontWeight:700}}>
-                {autoTryon ? '✓ Auto outfit' : '✓ Custom outfit'}
-              </span>
-            )}
-          </div>
-        )}
+      <div style={{background:'#080818',borderRadius:16,overflow:'hidden',minHeight:500}}>
         <iframe
-          key={frameKey}
-          srcDoc={result ? buildAvatar(result, dressB64, faceB64) : ''}
-          style={{width:'100%',height:600,border:'none',display:'block'}}
-          title="avatar"
+          key={k}
+          srcDoc={buildSpinPage(result, photoDataUrl, withDress ? dressB64 : null)}
+          style={{width:'100%',height:560,border:'none',display:'block'}}
+          title={id}
+          sandbox="allow-scripts"
         />
       </div>
     )
   }
 
-  const tabBtn = (id:string, lbl:string) => (
+  const tabBtn = (id: string, label: string) => (
     <button onClick={()=>setActiveTab(id as any)} style={{
       padding:'10px 18px', border:'none', cursor:'pointer', fontWeight:700, fontSize:13,
       background:'transparent',
-      color: activeTab===id ? '#e8c99a' : '#4040a0',
+      color: activeTab===id ? '#e8c99a' : '#38307a',
       borderBottom: activeTab===id ? '2px solid #e8c99a' : '2px solid transparent',
-      whiteSpace:'nowrap', transition:'all .2s'
-    }}>{lbl}</button>
+      whiteSpace:'nowrap', transition:'color .15s'
+    }}>{label}</button>
   )
 
+  /* ─── RENDER ─── */
   return (
     <main style={{minHeight:'100vh',background:'#06061a',color:'#e8e0ff',fontFamily:'system-ui,sans-serif'}}>
 
-      {/* Header */}
-      <div style={{background:'linear-gradient(135deg,#1a0938,#0d0628)',padding:'18px 24px',borderBottom:'1px solid #1e1848',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
+      {/* ── HEADER ── */}
+      <div style={{background:'linear-gradient(135deg,#160830,#0a0420)',padding:'15px 22px',borderBottom:'1px solid #160d38',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
         <div>
-          <h1 style={{margin:0,fontSize:'1.45rem',fontWeight:800,color:'#e8c99a'}}>👗 3D Fashion Stylist Pro</h1>
-          <p style={{margin:'2px 0 0',color:'#7060a0',fontSize:'0.76rem'}}>
-            AI measurements · Real-face 3D avatar · Actual dress try-on · Smart recommendations · v28
+          <h1 style={{margin:0,fontSize:'1.35rem',fontWeight:800,color:'#e8c99a'}}>
+            👗 3D Fashion Stylist Pro
+          </h1>
+          <p style={{margin:'2px 0 0',color:'#4a3870',fontSize:'0.72rem'}}>
+            Your photo spins in 3D · AI body measurements · Smart style recommendations
           </p>
         </div>
         {result && (
-          <div style={{display:'flex',alignItems:'center',gap:10,background:'#1a1848',border:'1px solid #2e2868',borderRadius:12,padding:'7px 14px'}}>
-            <span style={{width:12,height:12,borderRadius:'50%',background:result.skin_hex,border:'1px solid #888',display:'inline-block'}}/>
-            <span style={{fontWeight:800,color:'#e8c99a'}}>{result.size}</span>
-            <span style={{color:'#8060c0',fontSize:12}}>{result.body_icon} {result.body_type}</span>
-            {result.confidence && (
-              <span style={{color:'#4a4880',fontSize:11,borderLeft:'1px solid #2a2860',paddingLeft:8}}>
-                {result.confidence}% conf
-              </span>
-            )}
+          <div style={{display:'flex',alignItems:'center',gap:8,background:'rgba(20,14,50,0.9)',border:'1px solid #221848',borderRadius:12,padding:'6px 14px'}}>
+            <span style={{width:10,height:10,borderRadius:'50%',background:result.skin_hex,border:'1px solid #666',display:'inline-block'}}/>
+            <span style={{fontWeight:800,color:'#ffd700',fontSize:15}}>{result.size}</span>
+            <span style={{color:'#6050a0',fontSize:12}}>{result.body_icon} {result.body_type}</span>
           </div>
         )}
       </div>
 
-      <div style={{maxWidth:1200,margin:'0 auto',padding:'18px 14px'}}>
+      <div style={{maxWidth:1180,margin:'0 auto',padding:'16px 12px'}}>
 
-        {/* ── UPLOAD STEP ── */}
+        {/* ══ UPLOAD STEP ══ */}
         {step==='upload' && (
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:18}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16}}>
 
-            {/* Upload panel */}
-            <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:16,padding:22}}>
-              <div style={{color:'#e8c99a',fontWeight:800,fontSize:15,marginBottom:6}}>📸 Upload Your Photo</div>
-              <div style={{color:'#5050a0',fontSize:12,marginBottom:14}}>
-                Stand straight, facing camera — head to toe ideally. Your <b style={{color:'#8060e0'}}>actual face</b> will appear on your avatar!
+            <div style={{background:'#0c0c2a',border:'1px solid #1a1848',borderRadius:18,padding:22}}>
+              <div style={{color:'#e8c99a',fontWeight:800,fontSize:15,marginBottom:4}}>📸 Upload Your Photo</div>
+              <div style={{color:'#3a3068',fontSize:12,marginBottom:14,lineHeight:1.55}}>
+                Your <b style={{color:'#7050c0'}}>actual photo</b> spins in 3D — no mannequin, no avatar.<br/>Stand facing camera, full body visible.
               </div>
 
               {/* Category */}
-              <div style={{display:'flex',gap:8,marginBottom:10}}>
+              <div style={{display:'flex',gap:6,marginBottom:10}}>
                 {['Women','Men','Kids'].map(c=>(
                   <button key={c} onClick={()=>setCategory(c)} style={{
-                    flex:1,padding:'8px 0',border:`1px solid ${category===c?'#8060e0':'#1e1848'}`,
-                    borderRadius:8,cursor:'pointer',fontWeight:700,fontSize:12,
-                    background:category===c?'#2a1f60':'#0d0d2a',
-                    color:category===c?'#e8c99a':'#5040a0',transition:'all .2s'
+                    flex:1,padding:'8px 0',borderRadius:8,cursor:'pointer',fontWeight:700,fontSize:12,
+                    border:`1px solid ${category===c?'#6030c0':'#181840'}`,
+                    background:category===c?'#22166a':'#090920',
+                    color:category===c?'#e8c99a':'#362870',transition:'all .2s'
                   }}>{c}</button>
                 ))}
               </div>
 
-              {/* Height input */}
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,background:'#0d0d2a',borderRadius:10,padding:'8px 12px',border:'1px solid #1e1848'}}>
+              {/* Height */}
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,background:'#08081e',borderRadius:10,padding:'9px 12px',border:'1px solid #141440'}}>
                 <span style={{fontSize:16}}>📏</span>
-                <span style={{color:'#7060a0',fontSize:12,whiteSpace:'nowrap'}}>Height</span>
+                <span style={{color:'#3a3060',fontSize:12,flexShrink:0}}>Height</span>
                 <input type="number" value={userHeight} onChange={e=>setUserHeight(e.target.value)}
-                  placeholder="e.g. 162" min="80" max="220"
-                  style={{flex:1,background:'transparent',border:'none',outline:'none',color:'#e8e0ff',fontSize:14,fontWeight:700,width:'70px'}}/>
-                <span style={{color:'#4040a0',fontSize:12}}>cm</span>
-                <span style={{color:'#2a2a60',fontSize:11,marginLeft:4}}>(improves accuracy)</span>
+                  placeholder="162" min="80" max="220"
+                  style={{flex:1,background:'transparent',border:'none',outline:'none',color:'#e8e0ff',fontSize:14,fontWeight:700,minWidth:0}}/>
+                <span style={{color:'#282850',fontSize:12,flexShrink:0}}>cm</span>
               </div>
 
               {/* Drop zone */}
               <div onClick={()=>fileRef.current?.click()} style={{
-                border:'2px dashed #2a2860',borderRadius:12,padding:24,cursor:'pointer',
-                background:'#0d0d2a',textAlign:'center',minHeight:200,
-                display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10,
-                transition:'border-color .2s'
+                border:`2px dashed ${preview?'#4030a0':'#161640'}`,
+                borderRadius:14,cursor:'pointer',
+                background:'#080818',textAlign:'center',
+                minHeight:200,display:'flex',flexDirection:'column',
+                alignItems:'center',justifyContent:'center',gap:10,
+                padding:preview?6:28,transition:'all .2s',
+                boxShadow:preview?'0 0 0 1px rgba(100,60,200,0.2)':'none'
               }}>
                 {preview
-                  ? <img src={preview} alt="preview" style={{maxHeight:220,borderRadius:10,objectFit:'contain'}}/>
+                  ? <img src={preview} alt="preview" style={{maxHeight:260,borderRadius:10,objectFit:'contain'}}/>
                   : <>
-                    <div style={{fontSize:52}}>📷</div>
-                    <div style={{color:'#6040c0',fontSize:13,fontWeight:700}}>Click or drop your photo here</div>
-                    <div style={{color:'#2a2a60',fontSize:11}}>JPG · PNG · WEBP</div>
+                    <div style={{fontSize:56}}>📷</div>
+                    <div style={{color:'#3a2c80',fontSize:13,fontWeight:700}}>Tap to choose your photo</div>
+                    <div style={{color:'#1e1c40',fontSize:11}}>JPG · PNG · WEBP</div>
                   </>
                 }
               </div>
@@ -682,209 +507,195 @@ export default function Home() {
                 onChange={e=>{const f=e.target.files?.[0];if(f){setPreview(URL.createObjectURL(f));analyze(f)}}}/>
 
               {loading && (
-                <div style={{marginTop:12,color:'#8060e0',fontSize:13,textAlign:'center',padding:12,background:'#1a1848',borderRadius:8}}>
-                  <div style={{marginBottom:6}}>⏳ Analysing measurements...</div>
-                  <div style={{color:'#5040a0',fontSize:11}}>Extracting face · Detecting body · Generating avatar</div>
+                <div style={{marginTop:12,padding:'12px 14px',background:'#120a30',border:'1px solid #301870',borderRadius:10,textAlign:'center'}}>
+                  <div style={{color:'#8060d0',fontWeight:700,fontSize:13}}>⏳ Analysing your photo...</div>
+                  <div style={{color:'#3a2870',fontSize:11,marginTop:4}}>Measuring body · Preparing spin view</div>
                 </div>
               )}
               {error && (
-                <div style={{marginTop:12,padding:'10px 14px',background:'#2a0a0a',border:'1px solid #880000',borderRadius:8,color:'#ff8080',fontSize:12}}>
+                <div style={{marginTop:12,padding:'10px 14px',background:'#1e0606',border:'1px solid #500',borderRadius:8,color:'#ff6060',fontSize:12}}>
                   ❌ {error}
                 </div>
               )}
             </div>
 
-            {/* Feature list */}
-            <div style={{background:'#10103a',border:'1px solid #1e1848',borderRadius:16,padding:22}}>
-              <div style={{color:'#e8c99a',fontWeight:700,fontSize:14,marginBottom:14}}>✨ What you get</div>
-              {[
-                ['🪞','Your REAL FACE on the avatar — extracted from your photo automatically'],
-                ['👗','The ACTUAL OUTFIT from your photo shown on your avatar instantly'],
-                ['📏','Accurate measurements: shoulder, bust, waist, high-hip, low-hip'],
-                ['👤','Full-body 3D avatar matching YOUR proportions — drag to rotate 360°'],
-                ['🎨','Personalised colour palette for your exact skin tone'],
-                ['🛍','Shopping links with your size on Amazon & Flipkart'],
-                ['⬇','Download your avatar as PNG to share'],
-              ].map(([e,t])=>(
-                <div key={t as string} style={{display:'flex',gap:12,alignItems:'flex-start',marginBottom:11}}>
-                  <span style={{fontSize:18,flexShrink:0}}>{e}</span>
-                  <span style={{color:'#7060a0',fontSize:13}}>{t}</span>
+            {/* What you get */}
+            <div style={{background:'#0c0c2a',border:'1px solid #141440',borderRadius:18,padding:22}}>
+              <div style={{color:'#e8c99a',fontWeight:700,fontSize:14,marginBottom:16}}>✨ What happens</div>
+              {([
+                ['📸','Your real photo spins in 3D — drag it left or right to rotate'],
+                ['📐','AI measures bust, waist, hip and recommends your size'],
+                ['📏','Measurement lines overlay directly on your photo'],
+                ['👗','Your current outfit is auto-detected for the try-on view'],
+                ['🎨','Personalised colour palette matched to your skin tone'],
+                ['🛍','Shop your exact size on Amazon & Flipkart'],
+              ] as [string,string][]).map(([icon,text]) => (
+                <div key={text} style={{display:'flex',gap:12,alignItems:'flex-start',marginBottom:13}}>
+                  <span style={{fontSize:20,flexShrink:0}}>{icon}</span>
+                  <span style={{color:'#4a3880',fontSize:13,lineHeight:1.5}}>{text}</span>
                 </div>
               ))}
-              <div style={{marginTop:14,padding:'12px 14px',background:'linear-gradient(135deg,#1a1040,#0d0820)',border:'1px solid #2a1848',borderRadius:10,fontSize:12,color:'#4a4880'}}>
-                💡 <b style={{color:'#9060e0'}}>Pro tip:</b> Upload a front-facing photo in good lighting for the most accurate face and body analysis
-              </div>
             </div>
           </div>
         )}
 
-        {/* ── RESULT STEP ── */}
+        {/* ══ RESULT STEP ══ */}
         {step==='result' && result && (
           <div>
-            {/* Tabs */}
-            <div style={{display:'flex',borderBottom:'1px solid #1e1848',marginBottom:18,overflowX:'auto'}}>
+            {/* Tab bar */}
+            <div style={{display:'flex',borderBottom:'1px solid #141440',marginBottom:16,overflowX:'auto'}}>
               {tabBtn('avatar','👤 3D Avatar')}
               {tabBtn('tryon','👗 Try-On')}
               {tabBtn('shop','🛍 Shop')}
-              <button onClick={()=>{setStep('upload');setResult(null);setPreview(null);clearDress();setFaceB64(null)}}
-                style={{marginLeft:'auto',padding:'8px 14px',background:'#1a1848',color:'#6050a0',border:'1px solid #2a2860',borderRadius:8,cursor:'pointer',fontSize:12}}>
+              <button onClick={()=>{setStep('upload');setResult(null);setPreview(null);setPhotoDataUrl(null);clearDress()}}
+                style={{marginLeft:'auto',padding:'7px 13px',background:'#110d30',color:'#3a2870',border:'1px solid #1a1640',borderRadius:8,cursor:'pointer',fontSize:12}}>
                 📸 New Photo
               </button>
             </div>
 
-            {/* ─ AVATAR TAB ─ */}
+            {/* ── 3D AVATAR TAB ── */}
             {activeTab==='avatar' && (
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))',gap:18}}>
-                {avatarFrame('av1')}
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:16}}>
 
+                {/* Spinning photo — NO DRESS on avatar tab */}
+                {spinFrame('av1', false)}
+
+                {/* Right panel */}
                 <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                  {/* Detection image */}
+
+                  {/* Detection overlay image */}
                   {visImg && (
-                    <img src={visImg} alt="detection" style={{width:'100%',borderRadius:12,border:'1px solid #2a2860',maxHeight:240,objectFit:'contain',background:'#000'}}/>
+                    <div style={{borderRadius:12,overflow:'hidden',border:'1px solid #1a1a50',background:'#000'}}>
+                      <img src={visImg} alt="measurement analysis" style={{width:'100%',maxHeight:200,objectFit:'contain',display:'block'}}/>
+                      <div style={{padding:'5px 10px',background:'#080818',color:'#303060',fontSize:10}}>
+                        AI measurement detection — lines show exact scan positions
+                      </div>
+                    </div>
                   )}
 
-                  {/* Results card */}
-                  <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:14,padding:16}}>
-                    <div style={{color:'#e8c99a',fontWeight:800,marginBottom:6,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                      {result.body_icon} {result.body_type}
-                      <span style={{background:'#2a1f60',padding:'2px 10px',borderRadius:6,fontSize:14}}>{result.size}</span>
-                      {faceB64 && <span style={{background:'rgba(34,197,94,0.1)',border:'1px solid #22c55e33',color:'#22c55e',padding:'2px 8px',borderRadius:6,fontSize:11}}>✓ Real face</span>}
+                  {/* Body type + measurements */}
+                  <div style={{background:'#0c0c2a',border:'1px solid #1a1848',borderRadius:14,padding:16}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:8}}>
+                      <span style={{fontSize:24}}>{result.body_icon}</span>
+                      <span style={{color:'#e8c99a',fontWeight:800,fontSize:16}}>{result.body_type}</span>
+                      <span style={{background:'#2e1578',color:'#ffd700',padding:'3px 12px',borderRadius:8,fontWeight:800,fontSize:14}}>{result.size}</span>
                     </div>
+                    <div style={{color:'#3a3060',fontSize:12,marginBottom:12,lineHeight:1.5}}>{result.body_desc}</div>
 
                     {result.quality_warnings?.length > 0 && (
-                      <div style={{background:'rgba(255,165,0,.08)',border:'1px solid #ffaa0033',borderRadius:6,padding:'6px 10px',marginBottom:8}}>
-                        <div style={{color:'#ffaa00',fontWeight:700,fontSize:11,marginBottom:3}}>📷 Better accuracy tips:</div>
+                      <div style={{background:'rgba(255,150,0,0.06)',border:'1px solid rgba(255,150,0,0.18)',borderRadius:8,padding:'7px 10px',marginBottom:10}}>
                         {result.quality_warnings.slice(0,2).map((w:string)=>(
-                          <div key={w} style={{color:'#cc8800',fontSize:11}}>• {w}</div>
+                          <div key={w} style={{color:'#906000',fontSize:11}}>⚠ {w}</div>
                         ))}
                       </div>
                     )}
 
-                    {result.height_source && (
-                      <div style={{color:'#404060',fontSize:10,marginBottom:8}}>📏 {result.height_source}</div>
-                    )}
-                    <div style={{color:'#6050a0',fontSize:12,marginBottom:10}}>{result.body_desc}</div>
-
-                    {/* Measurements grid */}
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
-                      {[
+                    {/* Measurements */}
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6}}>
+                      {([
                         ['Shoulder', result.shoulder_cm],
                         ['Bust',     result.bust_cm],
                         ['Waist',    result.waist_cm],
-                        ['High Hip', result.high_hip_cm],
-                        ['Hip (Low)',result.hip_cm],
+                        ['Hi-Hip',   result.high_hip_cm],
+                        ['Hip',      result.hip_cm],
                         ['Height',   result.height_cm],
-                        ['Hollow→Hem',result.hollow_to_hem_cm],
-                        ['Inseam',   result.inseam_cm],
-                      ].map(([k,v])=>(
-                        <div key={k as string} style={{background:'#0d0d22',border:'1px solid #1a1848',borderRadius:8,padding:'8px 10px'}}>
-                          <div style={{color:'#4a4870',fontSize:10,textTransform:'uppercase',letterSpacing:1}}>{k}</div>
-                          <div style={{color:'#e8e0ff',fontWeight:700,fontSize:15}}>{v}<span style={{fontSize:10,color:'#4a4870',marginLeft:2}}>cm</span></div>
+                      ] as [string,any][]).map(([k,v])=>(
+                        <div key={k} style={{background:'#06061a',border:'1px solid #101038',borderRadius:8,padding:'7px 9px'}}>
+                          <div style={{color:'#28285a',fontSize:9,textTransform:'uppercase',letterSpacing:0.8}}>{k}</div>
+                          <div style={{color:'#ddd8f8',fontWeight:800,fontSize:14}}>{v}<span style={{fontSize:9,color:'#28285a',marginLeft:1}}>cm</span></div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Colours */}
-                  <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:14,padding:16}}>
-                    <div style={{color:'#e8c99a',fontWeight:700,fontSize:13,marginBottom:8}}>🎨 Best Colors — {result.skin_tone}</div>
-                    <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-                      {result.best_colors.slice(0,8).map((c:string)=>(
-                        <span key={c} style={{display:'inline-flex',alignItems:'center',gap:4,background:'#1e1848',color:'#b0a0e0',border:'1px solid #2e2868',borderRadius:8,padding:'3px 9px',fontSize:11}}>
-                          <span style={{width:8,height:8,borderRadius:'50%',background:COLOR_HEX[c]||'#888',display:'inline-block',border:'1px solid rgba(255,255,255,0.15)'}}/>
+                  {/* Colours + tips */}
+                  <div style={{background:'#0c0c2a',border:'1px solid #1a1848',borderRadius:14,padding:14}}>
+                    <div style={{color:'#e8c99a',fontWeight:700,fontSize:12,marginBottom:8}}>🎨 Your Colours — {result.skin_tone}</div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:10}}>
+                      {result.best_colors?.slice(0,7).map((c:string)=>(
+                        <span key={c} style={{display:'inline-flex',alignItems:'center',gap:4,background:'#141440',color:'#9080c0',border:'1px solid #202060',borderRadius:8,padding:'3px 8px',fontSize:11}}>
+                          <span style={{width:8,height:8,borderRadius:'50%',background:COLOR_HEX[c]||'#888',display:'inline-block'}}/>
                           {c}
                         </span>
                       ))}
                     </div>
-                    <div style={{color:'#e8c99a',fontWeight:700,fontSize:13,margin:'10px 0 6px'}}>💡 Style Tips</div>
+                    <div style={{color:'#e8c99a',fontWeight:700,fontSize:12,marginBottom:6}}>💡 Style Tips</div>
                     <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-                      {result.style_tips.map((t:string)=>(
-                        <span key={t} style={{background:'#1e2848',color:'#90b0f0',border:'1px solid #2e3868',borderRadius:8,padding:'3px 9px',fontSize:11}}>{t}</span>
+                      {result.style_tips?.map((t:string)=>(
+                        <span key={t} style={{background:'#101840',color:'#6080c0',border:'1px solid #1a2850',borderRadius:8,padding:'3px 8px',fontSize:11}}>{t}</span>
                       ))}
                     </div>
                   </div>
 
-                  <button onClick={()=>setActiveTab('tryon')} style={{background:'linear-gradient(135deg,#6040c0,#9060e0)',color:'#fff',border:'none',padding:'13px',borderRadius:12,cursor:'pointer',fontWeight:800,fontSize:14}}>
-                    👗 Try On Outfits →
+                  <button onClick={()=>setActiveTab('tryon')} style={{
+                    background:'linear-gradient(135deg,#4018a0,#7030c0)',
+                    color:'#fff',border:'none',padding:'12px',borderRadius:12,
+                    cursor:'pointer',fontWeight:800,fontSize:14,letterSpacing:0.2
+                  }}>
+                    👗 Virtual Try-On →
                   </button>
                 </div>
               </div>
             )}
 
-            {/* ─ TRY-ON TAB ─ */}
+            {/* ── TRY-ON TAB ── */}
             {activeTab==='tryon' && (
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))',gap:18}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:16}}>
 
                 <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                  {/* Auto try-on notice */}
-                  {autoTryon && dressB64 && (
-                    <div style={{background:'rgba(139,92,246,0.1)',border:'1px solid #8b5cf644',borderRadius:10,padding:'10px 14px',fontSize:12}}>
-                      <div style={{color:'#a78bfa',fontWeight:700,marginBottom:3}}>✨ Auto Try-On Active</div>
-                      <div style={{color:'#6050a0'}}>Your outfit from the uploaded photo has been automatically applied to your avatar!</div>
-                    </div>
-                  )}
 
-                  {/* Outfit upload panel */}
-                  <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:16,padding:18}}>
-                    <div style={{color:'#e8c99a',fontWeight:800,marginBottom:4}}>👗 Change Outfit</div>
-                    <div style={{color:'#5050a0',fontSize:12,marginBottom:12}}>
-                      Upload any outfit photo — the dress will be extracted and worn by your avatar
+                  {/* Outfit upload */}
+                  <div style={{background:'#0c0c2a',border:'1px solid #1a1848',borderRadius:16,padding:18}}>
+                    <div style={{color:'#e8c99a',fontWeight:800,marginBottom:4}}>👗 Upload a New Outfit</div>
+                    <div style={{color:'#3a2e70',fontSize:12,marginBottom:12,lineHeight:1.5}}>
+                      Your current outfit is already shown on your spinning photo.<br/>Upload a different garment image to swap it.
                     </div>
                     <div onClick={()=>dressRef.current?.click()} style={{
-                      border:'2px dashed #2a2860',borderRadius:12,padding:18,cursor:'pointer',
-                      background:'#0d0d2a',textAlign:'center',minHeight:160,
-                      display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:8,
-                      transition:'border-color .2s'
+                      border:'2px dashed #161640',borderRadius:12,padding:14,cursor:'pointer',
+                      background:'#080818',textAlign:'center',minHeight:130,
+                      display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:8
                     }}>
                       {dressPreview
-                        ? <img src={dressPreview} alt="dress" style={{maxHeight:160,borderRadius:8,objectFit:'contain'}}/>
-                        : <>
-                          <div style={{fontSize:36}}>👗</div>
-                          <div style={{color:'#4040a0',fontSize:13}}>Click to upload outfit</div>
-                          <div style={{color:'#2a2a60',fontSize:11}}>Dress · Saree · Kaftan · Kurta</div>
-                        </>
+                        ? <img src={dressPreview} alt="outfit" style={{maxHeight:130,borderRadius:8,objectFit:'contain'}}/>
+                        : <><span style={{fontSize:32}}>👗</span><span style={{color:'#2e2860',fontSize:12}}>Upload outfit image</span></>
                       }
                     </div>
                     <input ref={dressRef} type="file" accept="image/*" style={{display:'none'}}
-                      onChange={e=>{const f=e.target.files?.[0];if(f)tryOn(f)}}/>
-                    {dressLoading && <div style={{marginTop:10,color:'#8060e0',fontSize:13,textAlign:'center'}}>⏳ Extracting garment...</div>}
+                      onChange={e=>{const f=e.target.files?.[0];if(f)extractDressFrom(f)}}/>
+                    {dressLoading && <div style={{marginTop:8,color:'#5040a0',fontSize:12,textAlign:'center'}}>⏳ Extracting outfit...</div>}
                     {dressB64 && (
-                      <button onClick={clearDress} style={{marginTop:10,width:'100%',background:'#1a0a20',color:'#c060a0',border:'1px solid #401030',padding:'9px',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700}}>
-                        🗑️ Remove Outfit (show bare avatar)
+                      <button onClick={clearDress} style={{marginTop:10,width:'100%',background:'#120816',color:'#903080',border:'1px solid #280c26',padding:'8px',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700}}>
+                        🗑 Remove outfit overlay
                       </button>
                     )}
                   </div>
 
                   {/* Fit analysis */}
-                  <div style={{background:'#0d0d22',border:'1px solid #1e1848',borderRadius:14,padding:16}}>
-                    <div style={{color:'#e8c99a',fontWeight:700,fontSize:13,marginBottom:10}}>📐 Fit Analysis — Size {result.size}</div>
+                  <div style={{background:'#06061a',border:'1px solid #101038',borderRadius:14,padding:14}}>
+                    <div style={{color:'#e8c99a',fontWeight:700,fontSize:13,marginBottom:10}}>📐 Fit for Size {result.size}</div>
                     {fitBadges()}
-                    <div style={{marginTop:8,padding:'8px 10px',background:'#07071a',borderRadius:8,fontSize:11,color:'#5050a0',textAlign:'center'}}>
-                      Ease = room between body and garment. 0–6cm = perfect fit.
+                    <div style={{marginTop:6,fontSize:11,color:'#282848',textAlign:'center',padding:'6px',background:'#080818',borderRadius:6}}>
+                      Ease = space between body and garment. 0–6 cm = ideal fit.
                     </div>
                   </div>
 
-                  <div style={{background:'#10103a',border:'1px solid #2a2860',borderRadius:12,padding:14,fontSize:12,color:'#5050a0'}}>
-                    <div style={{color:'#e8c99a',fontWeight:700,marginBottom:6}}>💡 Tips</div>
-                    <p style={{margin:'3px 0'}}>• Drag the avatar left/right to rotate 360°</p>
-                    <p style={{margin:'3px 0'}}>• White-background product shots extract best</p>
-                    <p style={{margin:'3px 0'}}>• Click ⬇ Save to download your avatar image</p>
+                  <div style={{background:'#0c0c2a',border:'1px solid #141440',borderRadius:10,padding:12,fontSize:12,color:'#282858',lineHeight:1.6}}>
+                    <b style={{color:'#503890'}}>💡 Tips:</b>
+                    <div>• Drag your photo left/right to spin 360°</div>
+                    <div>• Product photos on white background work best</div>
+                    <div>• The outfit overlays on the front face</div>
                   </div>
                 </div>
 
-                {avatarFrame('av2')}
+                {/* Spinning photo WITH dress overlay */}
+                {spinFrame('av2', true)}
               </div>
             )}
 
-            {/* ─ SHOP TAB ─ */}
+            {/* ── SHOP TAB ── */}
             {activeTab==='shop' && (
-              <ShopPanel
-                bodyType={result.body_type}
-                skinTone={result.skin_tone}
-                size={result.size}
-                bestColors={result.best_colors}
-                category={category}
-              />
+              <ShopPanel bodyType={result.body_type} skinTone={result.skin_tone}
+                size={result.size} bestColors={result.best_colors} category={category}/>
             )}
           </div>
         )}
@@ -893,48 +704,34 @@ export default function Home() {
   )
 }
 
-/* ── Shop panel ── */
-function ShopPanel({bodyType,skinTone,size,bestColors,category}:any) {
-  const all = PRODUCTS[category] || PRODUCTS.Women
+function ShopPanel({bodyType,skinTone,size,bestColors,category}:any){
+  const all  = PRODUCTS[category]||PRODUCTS.Women
   const best = new Set(bestColors)
   let matched = all.filter((p:any)=>p.body.includes(bodyType)&&p.sizes.includes(size)&&p.colors.some((c:string)=>best.has(c)))
-  if (!matched.length) matched = all.filter((p:any)=>p.body.includes(bodyType))
-  if (!matched.length) matched = all
-  return (
+  if(!matched.length) matched = all.filter((p:any)=>p.body.includes(bodyType))
+  if(!matched.length) matched = all
+  return(
     <div>
       <div style={{color:'#e8c99a',fontWeight:800,fontSize:15,marginBottom:14}}>
-        🛍 {matched.length} Recommendations — {bodyType} · {skinTone} · Size {size}
+        🛍 {matched.length} picks — {bodyType} · {skinTone} · Size {size}
       </div>
-      <div style={{background:'#10103a',border:'1px solid #1e1848',borderRadius:12,padding:14,marginBottom:14}}>
-        <div style={{color:'#8070b0',fontSize:12,marginBottom:8,fontWeight:700}}>✨ Your Best Colours</div>
-        <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-          {bestColors.slice(0,8).map((c:string)=>(
-            <span key={c} style={{display:'inline-flex',alignItems:'center',gap:3,background:'#1e1848',color:'#a090d0',border:'1px solid #2e2868',borderRadius:8,padding:'2px 8px',fontSize:11}}>
-              <span style={{width:8,height:8,borderRadius:'50%',background:COLOR_HEX[c]||'#888',display:'inline-block'}}/>
-              {c}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(270px,1fr))',gap:12}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:12}}>
         {matched.map((p:any)=>{
-          const mc = p.colors.filter((c:string)=>best.has(c)).length
-            ? p.colors.filter((c:string)=>best.has(c))
-            : p.colors.slice(0,2)
-          return (
-            <div key={p.name} style={{background:'#10103a',border:'1px solid #1e1848',borderRadius:14,padding:16}}>
+          const mc=p.colors.filter((c:string)=>best.has(c)).length?p.colors.filter((c:string)=>best.has(c)):p.colors.slice(0,2)
+          return(
+            <div key={p.name} style={{background:'#0c0c2a',border:'1px solid #141440',borderRadius:14,padding:16}}>
               <div style={{color:'#e8c99a',fontWeight:700,fontSize:14,marginBottom:8}}>{p.name}</div>
               <div style={{display:'flex',gap:4,marginBottom:8,flexWrap:'wrap'}}>
                 {mc.map((c:string)=>(
-                  <span key={c} style={{display:'inline-flex',alignItems:'center',gap:3,background:'#1e1848',color:'#a090d0',border:'1px solid #2e2868',borderRadius:8,padding:'2px 7px',fontSize:11}}>
+                  <span key={c} style={{display:'inline-flex',alignItems:'center',gap:3,background:'#141440',color:'#9080c0',border:'1px solid #202060',borderRadius:8,padding:'2px 7px',fontSize:11}}>
                     <span style={{width:7,height:7,borderRadius:'50%',background:COLOR_HEX[c]||'#888',display:'inline-block'}}/>
                     {c}
                   </span>
                 ))}
               </div>
-              <div style={{color:'#3a3070',fontSize:11,marginBottom:12}}>Sizes: {p.sizes.join(' · ')}</div>
+              <div style={{color:'#222250',fontSize:11,marginBottom:12}}>Sizes: {p.sizes.join(' · ')}</div>
               <div style={{display:'flex',gap:8}}>
-                <a href={p.amazon} target="_blank" rel="noreferrer" style={{background:'#ff9900',color:'#000',padding:'7px 0',borderRadius:7,fontWeight:700,fontSize:12,textDecoration:'none',flex:1,textAlign:'center'}}>🛒 Amazon</a>
+                <a href={p.amazon}   target="_blank" rel="noreferrer" style={{background:'#ff9900',color:'#000',padding:'7px 0',borderRadius:7,fontWeight:700,fontSize:12,textDecoration:'none',flex:1,textAlign:'center'}}>🛒 Amazon</a>
                 <a href={p.flipkart} target="_blank" rel="noreferrer" style={{background:'#2874f0',color:'#fff',padding:'7px 0',borderRadius:7,fontWeight:700,fontSize:12,textDecoration:'none',flex:1,textAlign:'center'}}>🛒 Flipkart</a>
               </div>
             </div>
