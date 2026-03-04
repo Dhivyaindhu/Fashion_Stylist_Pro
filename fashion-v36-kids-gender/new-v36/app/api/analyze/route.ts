@@ -16,11 +16,13 @@ export async function POST(req: NextRequest) {
     const category = (form.get('category') as string) ?? 'Women'
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
-    const userHeight = (form.get('user_height') as string) ?? '0'
+    const userHeight   = (form.get('user_height')   as string) ?? '0'
+    const subCategory  = (form.get('sub_category')  as string) ?? 'Girl'
     const hfForm = new FormData()
     hfForm.append('file', file)
     hfForm.append('category', category)
     hfForm.append('user_height', userHeight)
+    hfForm.append('sub_category', subCategory)
 
     const hfRes = await fetch(`${HF}/analyze`, {
       method:  'POST',
