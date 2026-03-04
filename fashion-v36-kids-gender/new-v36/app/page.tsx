@@ -70,6 +70,26 @@ const PRODUCTS: Record<string, any[]> = {
     { name: "Dungaree Set",  bodies: ["Petite"], tones: ["all"], colors: ["Sky Blue","Lavender","Mint Green"],        amazon: "https://www.amazon.in/s?k=kids+dungaree",      flipkart: "https://www.flipkart.com/search?q=kids+dungaree",    myntra: "https://www.myntra.com/kids-dungarees?rawQuery=kids+dungaree" },
     { name: "Ethnic Wear",   bodies: ["Petite"], tones: ["all"], colors: ["Fuchsia","Marigold","Cobalt"],             amazon: "https://www.amazon.in/s?k=kids+ethnic+wear",   flipkart: "https://www.flipkart.com/search?q=kids+ethnic+wear", myntra: "https://www.myntra.com/kids-ethnic-wear?rawQuery=kids+ethnic" },
   ],
+  'Kids-Girl': [
+    { name: "Cotton Frock",         bodies: ["Petite Girl"], tones: ["all"], colors: ["Blush Pink","Mint Green","Butter Yellow"],  amazon: "https://www.amazon.in/s?k=baby+girl+cotton+frock",        flipkart: "https://www.flipkart.com/search?q=baby+girl+frock",            myntra: "https://www.myntra.com/girls-dresses?rawQuery=cotton+frock" },
+    { name: "Floral Pinafore",      bodies: ["Petite Girl"], tones: ["all"], colors: ["Lavender","Soft Peach","Blush Pink"],        amazon: "https://www.amazon.in/s?k=girls+floral+pinafore+dress",   flipkart: "https://www.flipkart.com/search?q=girls+pinafore+dress",       myntra: "https://www.myntra.com/girls-dresses?rawQuery=pinafore" },
+    { name: "Layered Skirt Set",    bodies: ["Petite Girl"], tones: ["all"], colors: ["Fuchsia","Sky Blue","Mint Green"],           amazon: "https://www.amazon.in/s?k=girls+layered+skirt+top+set",   flipkart: "https://www.flipkart.com/search?q=girls+skirt+set",            myntra: "https://www.myntra.com/girls-skirts?rawQuery=girls+layered+skirt" },
+    { name: "Lehenga Choli",        bodies: ["Petite Girl"], tones: ["all"], colors: ["Fuchsia","Marigold","Cobalt","Deep Burgundy"],amazon: "https://www.amazon.in/s?k=girls+lehenga+choli",           flipkart: "https://www.flipkart.com/search?q=girls+lehenga+choli",        myntra: "https://www.myntra.com/girls-ethnic-wear?rawQuery=lehenga+choli" },
+    { name: "Dungaree Dress",       bodies: ["Petite Girl"], tones: ["all"], colors: ["Sky Blue","Lavender","Blush Pink"],          amazon: "https://www.amazon.in/s?k=girls+dungaree+dress",          flipkart: "https://www.flipkart.com/search?q=girls+dungaree+dress",       myntra: "https://www.myntra.com/girls-dungarees?rawQuery=girls+dungaree" },
+    { name: "Salwar Kameez (Girl)", bodies: ["Petite Girl"], tones: ["all"], colors: ["Mint Green","Blush Pink","Butter Yellow"],   amazon: "https://www.amazon.in/s?k=girls+salwar+kameez",           flipkart: "https://www.flipkart.com/search?q=girls+salwar+kameez",        myntra: "https://www.myntra.com/girls-salwar?rawQuery=girls+salwar+kameez" },
+    { name: "Party Frock",          bodies: ["Petite Girl"], tones: ["all"], colors: ["Fuchsia","Lavender","Cobalt","Crimson"],     amazon: "https://www.amazon.in/s?k=girls+party+frock+dress",       flipkart: "https://www.flipkart.com/search?q=girls+party+frock",          myntra: "https://www.myntra.com/girls-dresses?rawQuery=girls+party+frock" },
+    { name: "Printed Kurti",        bodies: ["Petite Girl"], tones: ["all"], colors: ["Terracotta","Mustard","Royal Blue"],         amazon: "https://www.amazon.in/s?k=girls+printed+kurti",           flipkart: "https://www.flipkart.com/search?q=girls+kurti",                myntra: "https://www.myntra.com/girls-kurtis?rawQuery=girls+kurti" },
+  ],
+  'Kids-Boy': [
+    { name: "Polo T-Shirt",         bodies: ["Petite Boy"],  tones: ["all"], colors: ["Navy","Cobalt","Crimson","Emerald"],         amazon: "https://www.amazon.in/s?k=boys+polo+tshirt",              flipkart: "https://www.flipkart.com/search?q=boys+polo+tshirt",           myntra: "https://www.myntra.com/boys-tshirts?rawQuery=boys+polo" },
+    { name: "Graphic Tee + Jogger", bodies: ["Petite Boy"],  tones: ["all"], colors: ["Sky Blue","Charcoal","Cobalt","Crimson"],    amazon: "https://www.amazon.in/s?k=boys+graphic+tee+jogger+set",   flipkart: "https://www.flipkart.com/search?q=boys+tshirt+jogger+set",     myntra: "https://www.myntra.com/boys-clothing?rawQuery=boys+graphic+tee" },
+    { name: "Slim Fit Jeans",       bodies: ["Petite Boy"],  tones: ["all"], colors: ["Navy","Charcoal","Cobalt"],                  amazon: "https://www.amazon.in/s?k=boys+slim+fit+jeans",           flipkart: "https://www.flipkart.com/search?q=boys+jeans",                 myntra: "https://www.myntra.com/boys-jeans?rawQuery=boys+jeans" },
+    { name: "Cargo Shorts",         bodies: ["Petite Boy"],  tones: ["all"], colors: ["Olive","Navy","Charcoal","Camel"],           amazon: "https://www.amazon.in/s?k=boys+cargo+shorts",             flipkart: "https://www.flipkart.com/search?q=boys+cargo+shorts",          myntra: "https://www.myntra.com/boys-shorts?rawQuery=boys+cargo+shorts" },
+    { name: "Kurta Pyjama (Boy)",   bodies: ["Petite Boy"],  tones: ["all"], colors: ["Pure White","Cobalt","Marigold","Crimson"],  amazon: "https://www.amazon.in/s?k=boys+kurta+pyjama",             flipkart: "https://www.flipkart.com/search?q=boys+kurta+pyjama",          myntra: "https://www.myntra.com/boys-kurta?rawQuery=boys+kurta+pyjama" },
+    { name: "Striped Shirt + Pant", bodies: ["Petite Boy"],  tones: ["all"], colors: ["Sky Blue","Navy","Blush Pink","Mint Green"], amazon: "https://www.amazon.in/s?k=boys+striped+shirt+trouser+set",flipkart: "https://www.flipkart.com/search?q=boys+shirt+pant+set",         myntra: "https://www.myntra.com/boys-shirts?rawQuery=boys+striped+shirt" },
+    { name: "Sherwani Set (Boy)",   bodies: ["Petite Boy"],  tones: ["all"], colors: ["Deep Burgundy","Cobalt","Marigold","Ivory"],  amazon: "https://www.amazon.in/s?k=boys+sherwani+set",             flipkart: "https://www.flipkart.com/search?q=boys+sherwani",              myntra: "https://www.myntra.com/boys-ethnic-wear?rawQuery=boys+sherwani" },
+    { name: "Sweatshirt + Track",   bodies: ["Petite Boy"],  tones: ["all"], colors: ["Cobalt","Charcoal","Crimson","Emerald"],     amazon: "https://www.amazon.in/s?k=boys+sweatshirt+trackpants",    flipkart: "https://www.flipkart.com/search?q=boys+sweatshirt+track+pant", myntra: "https://www.myntra.com/boys-sweatshirts?rawQuery=boys+sweatshirt" },
+  ],
 }
 
 const STEPS = ["Upload Photo", "Measurements", "Body Type", "Skin & Colors", "Dress Picks", "Virtual Try-On"]
@@ -278,7 +298,8 @@ export default function FashionStylist() {
 
   const getRecommendedProducts = () => {
     if (!result) return []
-    const all  = PRODUCTS[category] || PRODUCTS.Women
+    const productKey = category === 'Kids' ? (subCategory === 'Boy' ? 'Kids-Boy' : 'Kids-Girl') : category
+    const all  = PRODUCTS[productKey] || PRODUCTS.Women
     const best = new Set(skinRec?.best || [])
     let matched = all.filter((p: any) =>
       (p.bodies.includes(result.body_type) || p.bodies.includes('all')) &&
